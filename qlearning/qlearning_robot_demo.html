@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-Learning: Robotski usisivač</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .grid-cell {
+            width: 60px;
+            height: 60px;
+            border: 1px solid #cbd5e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .grid-cell:hover {
+            background: #f7fafc;
+        }
+        .q-value {
+            position: absolute;
+            font-size: 8px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+        .q-up { top: 2px; left: 50%; transform: translateX(-50%); }
+        .q-down { bottom: 2px; left: 50%; transform: translateX(-50%); }
+        .q-left { left: 2px; top: 50%; transform: translateY(-50%); }
+        .q-right { right: 2px; top: 50%; transform: translateY(-50%); }
+        .robot-trail {
+            animation: fadeOut 0.5s forwards;
+        }
+        @keyframes fadeOut {
+            from { opacity: 0.6; }
+            to { opacity: 0; }
+        }
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🤖 Q-Learning: Robotski usisivač traži put do baze</h1>
+                <p class="text-gray-600">Reinforcement Learning demo - Agent uči optimalnu strategiju kroz interakciju sa okruženjem</p>
+            </div>
+
+            <!-- Controls -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">⚙️ Postavke učenja</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Learning Rate (α):</label>
+                        <input type="range" id="learningRate" min="0.01" max="1" step="0.01" value="0.1" class="w-full">
+                        <div class="text-center font-bold text-lg text-blue-600" id="learningRateDisplay">0.1</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Discount Factor (γ):</label>
+                        <input type="range" id="discountFactor" min="0" max="1" step="0.05" value="0.9" class="w-full">
+                        <div class="text-center font-bold text-lg text-purple-600" id="discountFactorDisplay">0.9</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Epsilon (ε):</label>
+                        <input type="range" id="epsilon" min="0" max="1" step="0.05" value="0.3" class="w-full">
+                        <div class="text-center font-bold text-lg text-green-600" id="epsilonDisplay">0.3</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Brzina animacije:</label>
+                        <input type="range" id="animSpeed" min="50" max="1000" step="50" value="300" class="w-full">
+                        <div class="text-center font-bold text-lg text-orange-600" id="animSpeedDisplay">300ms</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Max koraka/epizoda:</label>
+                        <input type="number" id="maxSteps" min="20" max="200" value="50" class="w-full p-2 border-2 rounded">
+                    </div>
+                </div>
+                <div class="flex gap-4 flex-wrap">
+                    <button onclick="startTraining()" id="trainBtn" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-lg">
+                        🚀 Pokreni treniranje
+                    </button>
+                    <button onclick="stopTraining()" id="stopBtn" class="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 shadow-lg" disabled>
+                        ⏸️ Zaustavi
+                    </button>
+                    <button onclick="resetEnvironment()" class="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 shadow-lg">
+                        🔄 Reset
+                    </button>
+                    <button onclick="showOptimalPath()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 shadow-lg">
+                        ✨ Prikaži optimalan put
+                    </button>
+                    <button onclick="toggleQValues()" id="qToggleBtn" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 shadow-lg">
+                        👁️ Q-vrijednosti: OFF
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Environment Grid -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">🗺️ Okruženje</h2>
+                    <div id="gridContainer" class="inline-block"></div>
+                    <div class="mt-4 grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🤖</span>
+                            <span>Usisivač</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🔋</span>
+                            <span>Baza za punjenje</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 bg-gray-700"></div>
+                            <span>Prepreka (namještaj)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 bg-yellow-200"></div>
+                            <span>Prašina</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Statistika učenja</h2>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <div class="text-sm text-blue-600 font-semibold">Epizoda</div>
+                            <div class="text-3xl font-bold text-blue-900" id="episodeCount">0</div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                            <div class="text-sm text-green-600 font-semibold">Ukupni koraci</div>
+                            <div class="text-3xl font-bold text-green-900" id="totalSteps">0</div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <div class="text-sm text-purple-600 font-semibold">Prosječna nagrada</div>
+                            <div class="text-3xl font-bold text-purple-900" id="avgReward">0</div>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                            <div class="text-sm text-orange-600 font-semibold">Uspješnost</div>
+                            <div class="text-3xl font-bold text-orange-900" id="successRate">0%</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-sm" id="statusMessage">
+                        Postavi parametre i pokreni treniranje...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Nagrada po epizodi</h2>
+                    <canvas id="rewardChart"></canvas>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📉 Broj koraka po epizodi</h2>
+                    <canvas id="stepsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Q-Table -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🧠 Q-Tabela (uzorak)</h2>
+                <p class="text-sm text-gray-600 mb-3">Prikazuje Q-vrijednosti za nekoliko stanja. Boje pokazuju preferenciju akcija.</p>
+                <div id="qTableContainer" class="overflow-x-auto"></div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 Kako radi Q-Learning?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <h3 class="font-bold text-blue-900 mb-2">Formula ažuriranja Q-vrijednosti</h3>
+                            <div class="bg-white rounded p-3 font-mono text-sm">
+                                Q(s,a) ← Q(s,a) + α[r + γ·max Q(s',a') - Q(s,a)]
+                            </div>
+                            <p class="text-sm text-blue-800 mt-2">
+                                α = learning rate, γ = discount factor<br>
+                                r = nagrada, s' = novo stanje
+                            </p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                            <h3 class="font-bold text-green-900 mb-2">Epsilon-greedy strategija</h3>
+                            <p class="text-sm text-green-800">
+                                • Sa vjerovatnoćom <strong>ε</strong>: nasumična akcija (exploration)<br>
+                                • Sa vjerovatnoćom <strong>1-ε</strong>: najbolja akcija (exploitation)
+                            </p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <h3 class="font-bold text-purple-900 mb-2">Sistem nagrada</h3>
+                            <ul class="text-sm text-purple-800 space-y-1">
+                                <li>🔋 <strong>Dostizanje baze: +100</strong></li>
+                                <li>🧹 <strong>Čišćenje prašine: +5</strong></li>
+                                <li>🚫 <strong>Sudar sa preprekom: -10</strong></li>
+                                <li>⏱️ <strong>Svaki korak: -1</strong> (motiviše kraći put)</li>
+                            </ul>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                            <h3 class="font-bold text-orange-900 mb-2">Proces učenja</h3>
+                            <p class="text-sm text-orange-800">
+                                1. Agent startuje sa nasumične pozicije<br>
+                                2. Bira akciju (epsilon-greedy)<br>
+                                3. Prima nagradu i prelazi u novo stanje<br>
+                                4. Ažurira Q(s,a) vrijednost<br>
+                                5. Ponavlja dok ne dostigne cilj ili max korake
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm mt-6">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Grid configuration
+        const GRID_SIZE = 8;
+        const ACTIONS = ['up', 'down', 'left', 'right'];
+        const ACTION_DELTA = {
+            'up': [-1, 0],
+            'down': [1, 0],
+            'left': [0, -1],
+            'right': [0, 1]
+        };
+
+        // State
+        let qTable = {};
+        let environment = [];
+        let robotPos = [0, 0];
+        let basePos = [7, 7];
+        let obstacles = [[2, 2], [2, 3], [3, 2], [5, 4], [5, 5], [4, 5], [1, 6], [6, 1]];
+        let dirt = [[1, 1], [3, 5], [6, 3], [4, 6], [2, 7]];
+        let cleanedDirt = new Set();
+        
+        let episodeCount = 0;
+        let totalSteps = 0;
+        let rewardHistory = [];
+        let stepsHistory = [];
+        let successCount = 0;
+        let isTraining = false;
+        let showQValues = false;
+        
+        let rewardChart, stepsChart;
+
+        // Initialize
+        document.getElementById('learningRate').addEventListener('input', function() {
+            document.getElementById('learningRateDisplay').textContent = this.value;
+        });
+        document.getElementById('discountFactor').addEventListener('input', function() {
+            document.getElementById('discountFactorDisplay').textContent = this.value;
+        });
+        document.getElementById('epsilon').addEventListener('input', function() {
+            document.getElementById('epsilonDisplay').textContent = this.value;
+        });
+        document.getElementById('animSpeed').addEventListener('input', function() {
+            document.getElementById('animSpeedDisplay').textContent = this.value + 'ms';
+        });
+
+        function initEnvironment() {
+            environment = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+            
+            // Mark obstacles
+            obstacles.forEach(([r, c]) => environment[r][c] = -1);
+            
+            // Mark base
+            environment[basePos[0]][basePos[1]] = 2;
+            
+            // Mark dirt
+            dirt.forEach(([r, c]) => {
+                if (!cleanedDirt.has(`${r},${c}`)) {
+                    environment[r][c] = 3;
+                }
+            });
+            
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('gridContainer');
+            container.innerHTML = '';
+            
+            const table = document.createElement('div');
+            table.style.display = 'inline-grid';
+            table.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 60px)`;
+            table.style.gap = '0';
+            
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.id = `cell-${r}-${c}`;
+                    
+                    // Background color
+                    if (environment[r][c] === -1) {
+                        cell.style.background = '#4a5568';
+                    } else if (environment[r][c] === 2) {
+                        cell.style.background = '#48bb78';
+                        cell.innerHTML = '🔋';
+                    } else if (environment[r][c] === 3) {
+                        cell.style.background = '#fef08a';
+                    }
+                    
+                    // Robot position
+                    if (r === robotPos[0] && c === robotPos[1]) {
+                        cell.innerHTML = '<span class="text-4xl">🤖</span>';
+                        cell.style.background = '#93c5fd';
+                    }
+                    
+                    // Q-values overlay
+                    if (showQValues && environment[r][c] !== -1) {
+                        const state = `${r},${c}`;
+                        if (qTable[state]) {
+                            const qVals = qTable[state];
+                            cell.innerHTML += `
+                                <span class="q-value q-up">${qVals['up'].toFixed(1)}</span>
+                                <span class="q-value q-down">${qVals['down'].toFixed(1)}</span>
+                                <span class="q-value q-left">${qVals['left'].toFixed(1)}</span>
+                                <span class="q-value q-right">${qVals['right'].toFixed(1)}</span>
+                            `;
+                        }
+                    }
+                    
+                    table.appendChild(cell);
+                }
+            }
+            
+            container.appendChild(table);
+        }
+
+        function initQTable() {
+            qTable = {};
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (environment[r][c] !== -1) {
+                        const state = `${r},${c}`;
+                        qTable[state] = {
+                            'up': 0,
+                            'down': 0,
+                            'left': 0,
+                            'right': 0
+                        };
+                    }
+                }
+            }
+        }
+
+        function getReward(oldPos, newPos) {
+            const [r, c] = newPos;
+            
+            // Hit obstacle
+            if (environment[r][c] === -1) return -10;
+            
+            // Reached base
+            if (r === basePos[0] && c === basePos[1]) return 100;
+            
+            // Cleaned dirt
+            if (environment[r][c] === 3 && !cleanedDirt.has(`${r},${c}`)) {
+                cleanedDirt.add(`${r},${c}`);
+                environment[r][c] = 0;
+                return 5;
+            }
+            
+            // Regular step
+            return -1;
+        }
+
+        function isValidPos(pos) {
+            const [r, c] = pos;
+            return r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && environment[r][c] !== -1;
+        }
+
+        function chooseAction(state, epsilon) {
+            if (Math.random() < epsilon) {
+                // Exploration: random action
+                return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+            } else {
+                // Exploitation: best action
+                const qValues = qTable[state];
+                let maxQ = -Infinity;
+                let bestActions = [];
+                
+                for (let action of ACTIONS) {
+                    if (qValues[action] > maxQ) {
+                        maxQ = qValues[action];
+                        bestActions = [action];
+                    } else if (qValues[action] === maxQ) {
+                        bestActions.push(action);
+                    }
+                }
+                
+                return bestActions[Math.floor(Math.random() * bestActions.length)];
+            }
+        }
+
+        async function runEpisode() {
+            // Random start position (not on obstacle or base)
+            do {
+                robotPos = [
+                    Math.floor(Math.random() * GRID_SIZE),
+                    Math.floor(Math.random() * GRID_SIZE)
+                ];
+            } while (environment[robotPos[0]][robotPos[1]] === -1 || 
+                     (robotPos[0] === basePos[0] && robotPos[1] === basePos[1]));
+            
+            const alpha = parseFloat(document.getElementById('learningRate').value);
+            const gamma = parseFloat(document.getElementById('discountFactor').value);
+            const epsilon = parseFloat(document.getElementById('epsilon').value);
+            const maxSteps = parseInt(document.getElementById('maxSteps').value);
+            const animSpeed = parseInt(document.getElementById('animSpeed').value);
+            
+            let episodeReward = 0;
+            let steps = 0;
+            let reachedGoal = false;
+            
+            for (let step = 0; step < maxSteps; step++) {
+                if (!isTraining) break;
+                
+                const state = `${robotPos[0]},${robotPos[1]}`;
+                const action = chooseAction(state, epsilon);
+                
+                // Take action
+                const delta = ACTION_DELTA[action];
+                const newPos = [robotPos[0] + delta[0], robotPos[1] + delta[1]];
+                
+                let actualNewPos;
+                if (isValidPos(newPos)) {
+                    actualNewPos = newPos;
+                } else {
+                    actualNewPos = robotPos; // Stay in place
+                }
+                
+                const reward = getReward(robotPos, actualNewPos);
+                episodeReward += reward;
+                
+                const newState = `${actualNewPos[0]},${actualNewPos[1]}`;
+                
+                // Q-learning update
+                const oldQ = qTable[state][action];
+                const maxNextQ = Math.max(...Object.values(qTable[newState]));
+                const newQ = oldQ + alpha * (reward + gamma * maxNextQ - oldQ);
+                qTable[state][action] = newQ;
+                
+                // Move robot
+                robotPos = actualNewPos;
+                steps++;
+                totalSteps++;
+                
+                renderGrid();
+                await sleep(animSpeed);
+                
+                // Check if reached goal
+                if (robotPos[0] === basePos[0] && robotPos[1] === basePos[1]) {
+                    reachedGoal = true;
+                    break;
+                }
+            }
+            
+            if (reachedGoal) successCount++;
+            
+            episodeCount++;
+            rewardHistory.push(episodeReward);
+            stepsHistory.push(steps);
+            
+            updateStatistics();
+            updateCharts();
+            updateQTableDisplay();
+        }
+
+        async function startTraining() {
+            if (episodeCount === 0) {
+                initQTable();
+                initCharts();
+            }
+            
+            isTraining = true;
+            document.getElementById('trainBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            const targetEpisodes = episodeCount + 100;
+            
+            while (isTraining && episodeCount < targetEpisodes) {
+                cleanedDirt = new Set();
+                await runEpisode();
+                updateStatus(`Treniram... Epizoda ${episodeCount}`);
+            }
+            
+            isTraining = false;
+            document.getElementById('trainBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            updateStatus('Treniranje završeno!');
+        }
+
+        function stopTraining() {
+            isTraining = false;
+            document.getElementById('trainBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            updateStatus('Treniranje zaustavljeno.');
+        }
+
+        function resetEnvironment() {
+            episodeCount = 0;
+            totalSteps = 0;
+            rewardHistory = [];
+            stepsHistory = [];
+            successCount = 0;
+            cleanedDirt = new Set();
+            qTable = {};
+            
+            initEnvironment();
+            updateStatistics();
+            
+            if (rewardChart) {
+                rewardChart.data.labels = [];
+                rewardChart.data.datasets[0].data = [];
+                rewardChart.update();
+            }
+            if (stepsChart) {
+                stepsChart.data.labels = [];
+                stepsChart.data.datasets[0].data = [];
+                stepsChart.update();
+            }
+            
+            document.getElementById('qTableContainer').innerHTML = '<p class="text-gray-500">Q-tabela je prazna. Pokreni treniranje.</p>';
+            updateStatus('Okruženje resetovano. Pokreni treniranje.');
+        }
+
+        async function showOptimalPath() {
+            if (Object.keys(qTable).length === 0) {
+                alert('Prvo isteniraj model!');
+                return;
+            }
+            
+            // Start from random position
+            do {
+                robotPos = [
+                    Math.floor(Math.random() * GRID_SIZE),
+                    Math.floor(Math.random() * GRID_SIZE)
+                ];
+            } while (environment[robotPos[0]][robotPos[1]] === -1 || 
+                     (robotPos[0] === basePos[0] && robotPos[1] === basePos[1]));
+            
+            cleanedDirt = new Set();
+            const animSpeed = parseInt(document.getElementById('animSpeed').value);
+            
+            for (let step = 0; step < 100; step++) {
+                const state = `${robotPos[0]},${robotPos[1]}`;
+                const action = chooseAction(state, 0); // Always greedy
+                
+                const delta = ACTION_DELTA[action];
+                const newPos = [robotPos[0] + delta[0], robotPos[1] + delta[1]];
+                
+                if (isValidPos(newPos)) {
+                    robotPos = newPos;
+                }
+                
+                renderGrid();
+                await sleep(animSpeed);
+                
+                if (robotPos[0] === basePos[0] && robotPos[1] === basePos[1]) {
+                    updateStatus(`Optimalan put pronađen za ${step + 1} koraka!`);
+                    break;
+                }
+            }
+        }
+
+        function toggleQValues() {
+            showQValues = !showQValues;
+            document.getElementById('qToggleBtn').textContent = `👁️ Q-vrijednosti: ${showQValues ? 'ON' : 'OFF'}`;
+            renderGrid();
+        }
+
+        function updateStatistics() {
+            document.getElementById('episodeCount').textContent = episodeCount;
+            document.getElementById('totalSteps').textContent = totalSteps;
+            
+            const avgReward = rewardHistory.length > 0 
+                ? (rewardHistory.reduce((a, b) => a + b, 0) / rewardHistory.length).toFixed(1)
+                : 0;
+            document.getElementById('avgReward').textContent = avgReward;
+            
+            const successRate = episodeCount > 0 
+                ? ((successCount / episodeCount) * 100).toFixed(1)
+                : 0;
+            document.getElementById('successRate').textContent = successRate + '%';
+        }
+
+        function updateStatus(message) {
+            document.getElementById('statusMessage').textContent = message;
+        }
+
+        function initCharts() {
+            const rewardCtx = document.getElementById('rewardChart');
+            const stepsCtx = document.getElementById('stepsChart');
+            
+            rewardChart = new Chart(rewardCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Nagrada',
+                        data: [],
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: { beginAtZero: false }
+                    }
+                }
+            });
+            
+            stepsChart = new Chart(stepsCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Koraci',
+                        data: [],
+                        borderColor: 'rgba(168, 85, 247, 1)',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!rewardChart || !stepsChart) return;
+            
+            const last50 = Math.max(0, episodeCount - 50);
+            
+            rewardChart.data.labels = Array.from({length: Math.min(50, episodeCount)}, (_, i) => last50 + i + 1);
+            rewardChart.data.datasets[0].data = rewardHistory.slice(last50);
+            rewardChart.update();
+            
+            stepsChart.data.labels = Array.from({length: Math.min(50, episodeCount)}, (_, i) => last50 + i + 1);
+            stepsChart.data.datasets[0].data = stepsHistory.slice(last50);
+            stepsChart.update();
+        }
+
+        function updateQTableDisplay() {
+            const container = document.getElementById('qTableContainer');
+            
+            // Show Q-values for a few sample states
+            const sampleStates = [
+                [0, 0], [0, 7], [3, 3], [5, 6], [7, 0], [6, 6]
+            ].filter(([r, c]) => environment[r][c] !== -1);
+            
+            let html = '<table class="w-full text-sm border-collapse">';
+            html += '<thead class="bg-gray-100"><tr>';
+            html += '<th class="border p-2">Stanje (r,c)</th>';
+            html += '<th class="border p-2">↑ Gore</th>';
+            html += '<th class="border p-2">↓ Dolje</th>';
+            html += '<th class="border p-2">← Lijevo</th>';
+            html += '<th class="border p-2">→ Desno</th>';
+            html += '<th class="border p-2">Najbolja akcija</th>';
+            html += '</tr></thead><tbody>';
+            
+            sampleStates.forEach(([r, c]) => {
+                const state = `${r},${c}`;
+                if (!qTable[state]) return;
+                
+                const qVals = qTable[state];
+                const maxQ = Math.max(...Object.values(qVals));
+                const bestAction = Object.keys(qVals).find(a => qVals[a] === maxQ);
+                
+                const actionSymbol = {
+                    'up': '↑',
+                    'down': '↓',
+                    'left': '←',
+                    'right': '→'
+                };
+                
+                html += '<tr class="hover:bg-gray-50">';
+                html += `<td class="border p-2 font-semibold">(${r}, ${c})</td>`;
+                
+                ACTIONS.forEach(action => {
+                    const val = qVals[action];
+                    const isBest = action === bestAction;
+                    const color = val > 0 ? 'text-green-700' : val < 0 ? 'text-red-700' : 'text-gray-700';
+                    const bgColor = isBest ? 'bg-yellow-100' : '';
+                    html += `<td class="border p-2 ${color} ${bgColor} ${isBest ? 'font-bold' : ''}">${val.toFixed(2)}</td>`;
+                });
+                
+                html += `<td class="border p-2 text-center text-2xl">${actionSymbol[bestAction]}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initialize on load
+        initEnvironment();
+        updateStatus('Okruženje spremno! Postavi parametre i pokreni treniranje.');
+    </script>
+</body>
+</html>

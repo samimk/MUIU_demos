@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID3 Decision Tree - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .tree-node {
+            transition: all 0.3s ease;
+        }
+        .tree-node:hover {
+            transform: scale(1.05);
+        }
+        .tree-line {
+            stroke: #4B5563;
+            stroke-width: 2;
+            fill: none;
+        }
+        textarea {
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                    ID3 Algoritam - Učenje drveta odlučivanja
+                </h1>
+                <p class="text-gray-600">
+                    Interaktivna demonstracija sa "Buys Computer" primjerom
+                </p>
+            </div>
+
+            <!-- Data Input -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Podaci za treniranje (CSV format)</h2>
+                <textarea 
+                    id="dataInput" 
+                    class="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
+                    placeholder="age,income,student,credit_rating,buys_computer"
+                >age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no</textarea>
+                <div class="flex gap-4 mt-4">
+                    <button 
+                        onclick="buildTree()" 
+                        class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg"
+                    >
+                        🌳 Izgradi drvo odlučivanja
+                    </button>
+                    <button 
+                        onclick="stepByStep()" 
+                        class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-all shadow-lg"
+                    >
+                        ▶️ Korak-po-korak
+                    </button>
+                    <button 
+                        onclick="resetDemo()" 
+                        class="bg-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-all shadow-lg"
+                    >
+                        🔄 Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">📈 Statistika dataseta</h3>
+                    <div id="datasetStats" class="space-y-2 text-sm"></div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">🎯 Entropija i dobitak</h3>
+                    <div id="entropyInfo" class="space-y-2 text-sm"></div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">⚡ Trenutni korak</h3>
+                    <div id="currentStep" class="text-sm">
+                        <p class="text-gray-600">Kliknite "Izgradi drvo" za početak</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Information Gain Table -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6" id="gainTableContainer" style="display:none;">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Informacioni dobitak za svaki atribut</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm" id="gainTable">
+                        <thead class="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Atribut</th>
+                                <th class="px-4 py-3 text-right">Entropija</th>
+                                <th class="px-4 py-3 text-right">Info Gain</th>
+                                <th class="px-4 py-3 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gainTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Decision Tree Visualization -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6" id="treeContainer" style="display:none;">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🌳 Drvo odlučivanja</h2>
+                <div id="treeVisualization" class="overflow-x-auto"></div>
+            </div>
+
+            <!-- Rules -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6" id="rulesContainer" style="display:none;">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📜 If-Then pravila</h2>
+                <div id="rulesOutput" class="space-y-2"></div>
+            </div>
+
+            <!-- Algorithm Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 Kako radi ID3 algoritam?</h2>
+                <div class="space-y-4 text-sm">
+                    <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                        <h3 class="font-bold text-blue-900 mb-2">Korak 1: Izračunaj entropiju dataseta</h3>
+                        <p class="text-blue-800">E(S) = -Σ p<sub>i</sub> log<sub>2</sub>(p<sub>i</sub>)</p>
+                        <p class="text-blue-700 mt-1">gdje je p<sub>i</sub> = proporcija primjera klase i</p>
+                    </div>
+                    
+                    <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                        <h3 class="font-bold text-green-900 mb-2">Korak 2: Izračunaj informacioni dobitak za svaki atribut</h3>
+                        <p class="text-green-800">Gain(S, A) = E(S) - Σ (|S<sub>v</sub>|/|S|) × E(S<sub>v</sub>)</p>
+                        <p class="text-green-700 mt-1">gdje je S<sub>v</sub> = podskup primjera gdje atribut A ima vrijednost v</p>
+                    </div>
+                    
+                    <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                        <h3 class="font-bold text-purple-900 mb-2">Korak 3: Izaberi atribut sa najvećim dobitkom</h3>
+                        <p class="text-purple-800">Najbolji atribut postaje korijen (ili čvor) drveta</p>
+                    </div>
+                    
+                    <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                        <h3 class="font-bold text-orange-900 mb-2">Korak 4: Rekurzivno ponovi za svaku granu</h3>
+                        <p class="text-orange-800">Za svaku vrijednost izabranog atributa, podijeli dataset i ponovi proces</p>
+                    </div>
+
+                    <div class="bg-red-50 rounded-lg p-4 border-l-4 border-red-500">
+                        <h3 class="font-bold text-red-900 mb-2">Uslovi zaustavljanja:</h3>
+                        <ul class="text-red-800 space-y-1">
+                            <li>• Svi primjeri pripadaju istoj klasi → List sa tom klasom</li>
+                            <li>• Nema više atributa → List sa većinskom klasom</li>
+                            <li>• Nema više primjera → List sa većinskom klasom roditeljskog čvora</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center text-gray-500 text-sm">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+                <p class="mt-1">Sarajevo, 2025. godine</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dataset = [];
+        let attributes = [];
+        let targetAttribute = '';
+        let decisionTree = null;
+        let stepMode = false;
+        let currentStepIndex = 0;
+        let steps = [];
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index];
+                    });
+                    data.push(row);
+                }
+            }
+            
+            return { headers, data };
+        }
+
+        function calculateEntropy(data, targetAttr) {
+            const counts = {};
+            data.forEach(row => {
+                const val = row[targetAttr];
+                counts[val] = (counts[val] || 0) + 1;
+            });
+            
+            const total = data.length;
+            let entropy = 0;
+            
+            for (const count of Object.values(counts)) {
+                const p = count / total;
+                if (p > 0) {
+                    entropy -= p * Math.log2(p);
+                }
+            }
+            
+            return entropy;
+        }
+
+        function calculateInformationGain(data, attribute, targetAttr) {
+            const totalEntropy = calculateEntropy(data, targetAttr);
+            const values = {};
+            
+            data.forEach(row => {
+                const val = row[attribute];
+                if (!values[val]) values[val] = [];
+                values[val].push(row);
+            });
+            
+            let weightedEntropy = 0;
+            for (const subset of Object.values(values)) {
+                const weight = subset.length / data.length;
+                weightedEntropy += weight * calculateEntropy(subset, targetAttr);
+            }
+            
+            return totalEntropy - weightedEntropy;
+        }
+
+        function getMajorityClass(data, targetAttr) {
+            const counts = {};
+            data.forEach(row => {
+                const val = row[targetAttr];
+                counts[val] = (counts[val] || 0) + 1;
+            });
+            
+            return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+        }
+
+        function buildDecisionTree(data, attrs, targetAttr, depth = 0) {
+            if (data.length === 0) {
+                return { type: 'leaf', value: 'unknown', depth };
+            }
+            
+            const classes = [...new Set(data.map(row => row[targetAttr]))];
+            
+            if (classes.length === 1) {
+                return { type: 'leaf', value: classes[0], depth, count: data.length };
+            }
+            
+            if (attrs.length === 0) {
+                return { type: 'leaf', value: getMajorityClass(data, targetAttr), depth, count: data.length };
+            }
+            
+            const gains = {};
+            attrs.forEach(attr => {
+                gains[attr] = calculateInformationGain(data, attr, targetAttr);
+            });
+            
+            const bestAttr = Object.keys(gains).reduce((a, b) => gains[a] > gains[b] ? a : b);
+            
+            const tree = {
+                type: 'node',
+                attribute: bestAttr,
+                gain: gains[bestAttr],
+                depth,
+                children: {}
+            };
+            
+            const values = [...new Set(data.map(row => row[bestAttr]))];
+            const remainingAttrs = attrs.filter(attr => attr !== bestAttr);
+            
+            values.forEach(value => {
+                const subset = data.filter(row => row[bestAttr] === value);
+                tree.children[value] = buildDecisionTree(subset, remainingAttrs, targetAttr, depth + 1);
+            });
+            
+            return tree;
+        }
+
+        function buildTree() {
+            const input = document.getElementById('dataInput').value;
+            const { headers, data } = parseCSV(input);
+            
+            if (data.length === 0) {
+                alert('Nema validnih podataka!');
+                return;
+            }
+            
+            dataset = data;
+            targetAttribute = headers[headers.length - 1];
+            attributes = headers.slice(0, -1);
+            
+            updateStatistics();
+            updateGainTable();
+            
+            decisionTree = buildDecisionTree(dataset, attributes, targetAttribute);
+            
+            visualizeTree();
+            generateRules();
+            
+            document.getElementById('gainTableContainer').style.display = 'block';
+            document.getElementById('treeContainer').style.display = 'block';
+            document.getElementById('rulesContainer').style.display = 'block';
+        }
+
+        function updateStatistics() {
+            const stats = document.getElementById('datasetStats');
+            const classCounts = {};
+            
+            dataset.forEach(row => {
+                const cls = row[targetAttribute];
+                classCounts[cls] = (classCounts[cls] || 0) + 1;
+            });
+            
+            const entropy = calculateEntropy(dataset, targetAttribute);
+            
+            let html = `
+                <div class="bg-blue-50 rounded p-3">
+                    <p class="font-semibold text-blue-900">Ukupno instanci: ${dataset.length}</p>
+                </div>
+                <div class="bg-green-50 rounded p-3">
+                    <p class="font-semibold text-green-900">Broj atributa: ${attributes.length}</p>
+                </div>
+                <div class="bg-purple-50 rounded p-3">
+                    <p class="font-semibold text-purple-900">Distribucija klasa:</p>
+                    ${Object.entries(classCounts).map(([cls, count]) => 
+                        `<p class="text-purple-700 ml-2">• ${cls}: ${count} (${(count/dataset.length*100).toFixed(1)}%)</p>`
+                    ).join('')}
+                </div>
+            `;
+            
+            stats.innerHTML = html;
+            
+            const entropyInfo = document.getElementById('entropyInfo');
+            entropyInfo.innerHTML = `
+                <div class="bg-orange-50 rounded p-3">
+                    <p class="font-semibold text-orange-900">Entropija dataseta:</p>
+                    <p class="text-2xl font-bold text-orange-700">${entropy.toFixed(4)}</p>
+                </div>
+                <div class="bg-red-50 rounded p-3 mt-2">
+                    <p class="text-xs text-red-700">E(S) = -Σ p<sub>i</sub> log<sub>2</sub>(p<sub>i</sub>)</p>
+                    <p class="text-xs text-red-600 mt-1">Maksimalna entropija = ${Math.log2(Object.keys(classCounts).length).toFixed(4)}</p>
+                </div>
+            `;
+        }
+
+        function updateGainTable() {
+            const tbody = document.getElementById('gainTableBody');
+            const gains = {};
+            
+            attributes.forEach(attr => {
+                gains[attr] = calculateInformationGain(dataset, attr, targetAttribute);
+            });
+            
+            const sortedAttrs = Object.entries(gains).sort((a, b) => b[1] - a[1]);
+            const bestAttr = sortedAttrs[0][0];
+            
+            tbody.innerHTML = sortedAttrs.map(([attr, gain], index) => {
+                const isBest = attr === bestAttr;
+                const entropy = calculateEntropy(dataset, targetAttribute);
+                const remainingEntropy = entropy - gain;
+                
+                return `
+                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isBest ? 'bg-green-100' : ''}">
+                        <td class="px-4 py-3 font-semibold ${isBest ? 'text-green-900' : 'text-gray-800'}">${attr}</td>
+                        <td class="px-4 py-3 text-right font-mono text-gray-700">${remainingEntropy.toFixed(4)}</td>
+                        <td class="px-4 py-3 text-right font-mono ${isBest ? 'text-green-700 font-bold' : 'text-gray-700'}">${gain.toFixed(4)}</td>
+                        <td class="px-4 py-3 text-center">
+                            ${isBest ? '<span class="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold">✓ BEST</span>' : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            const currentStep = document.getElementById('currentStep');
+            currentStep.innerHTML = `
+                <div class="bg-green-50 rounded p-3">
+                    <p class="font-semibold text-green-900">Najbolji atribut za root:</p>
+                    <p class="text-2xl font-bold text-green-700">${bestAttr}</p>
+                    <p class="text-xs text-green-600 mt-1">Info Gain = ${gains[bestAttr].toFixed(4)}</p>
+                </div>
+            `;
+        }
+
+        function visualizeTree() {
+            const container = document.getElementById('treeVisualization');
+            container.innerHTML = renderTree(decisionTree);
+        }
+
+        function renderTree(node, path = '') {
+            if (node.type === 'leaf') {
+                const color = node.value === 'yes' ? 'bg-green-500' : 'bg-red-500';
+                return `
+                    <div class="inline-block m-2">
+                        <div class="tree-node ${color} text-white rounded-lg p-4 shadow-lg">
+                            <div class="font-bold text-lg">${node.value.toUpperCase()}</div>
+                            <div class="text-xs mt-1">Leaf (${node.count || 0})</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const values = Object.keys(node.children);
+            const childrenHTML = values.map(value => {
+                const child = node.children[value];
+                return `
+                    <div class="inline-block">
+                        <div class="text-center mb-2">
+                            <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">${value}</span>
+                        </div>
+                        ${renderTree(child, path + ' → ' + value)}
+                    </div>
+                `;
+            }).join('');
+            
+            return `
+                <div class="text-center">
+                    <div class="tree-node bg-blue-600 text-white rounded-lg p-4 shadow-lg inline-block mb-4">
+                        <div class="font-bold text-lg">${node.attribute}?</div>
+                        <div class="text-xs mt-1">Gain: ${node.gain?.toFixed(4) || 'N/A'}</div>
+                    </div>
+                    <div class="flex justify-center gap-4 flex-wrap">
+                        ${childrenHTML}
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateRules() {
+            const rules = [];
+            extractRules(decisionTree, [], rules);
+            
+            const container = document.getElementById('rulesOutput');
+            container.innerHTML = rules.map((rule, index) => `
+                <div class="bg-gray-50 rounded-lg p-4 border-l-4 ${rule.result === 'yes' ? 'border-green-500' : 'border-red-500'}">
+                    <p class="font-mono text-sm">
+                        <span class="font-bold text-gray-700">Rule ${index + 1}:</span>
+                        IF ${rule.conditions.join(' AND ')}
+                        THEN <span class="${rule.result === 'yes' ? 'text-green-700' : 'text-red-700'} font-bold">${rule.result.toUpperCase()}</span>
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        function extractRules(node, conditions, rules) {
+            if (node.type === 'leaf') {
+                rules.push({
+                    conditions: conditions.slice(),
+                    result: node.value
+                });
+                return;
+            }
+            
+            for (const [value, child] of Object.entries(node.children)) {
+                const newConditions = [...conditions, `${node.attribute}=${value}`];
+                extractRules(child, newConditions, rules);
+            }
+        }
+
+        function stepByStep() {
+            alert('Korak-po-korak mod je u razvoju. Za sada koristite "Izgradi drvo" za kompletan prikaz.');
+        }
+
+        function resetDemo() {
+            document.getElementById('dataInput').value = `age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no`;
+            
+            document.getElementById('datasetStats').innerHTML = '';
+            document.getElementById('entropyInfo').innerHTML = '';
+            document.getElementById('currentStep').innerHTML = '<p class="text-gray-600">Kliknite "Izgradi drvo" za početak</p>';
+            document.getElementById('gainTableContainer').style.display = 'none';
+            document.getElementById('treeContainer').style.display = 'none';
+            document.getElementById('rulesContainer').style.display = 'none';
+        }
+
+        window.onload = () => {
+            resetDemo();
+        };
+    </script>
+</body>
+</html>

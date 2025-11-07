@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID3 Decision Tree - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .tree-node {
+            transition: all 0.3s ease;
+        }
+        .tree-node:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">ID3 Algoritam - Učenje drveta odlučivanja</h1>
+                <p class="text-gray-600">Interaktivna demonstracija sa "Buys Computer" primjerom</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Podaci za treniranje</h2>
+                <textarea id="dataInput" class="w-full h-64 p-4 border-2 border-gray-300 rounded-lg text-sm font-mono">age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no</textarea>
+                <div class="flex gap-4 mt-4">
+                    <button onclick="buildTree()" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700">🌳 Izgradi drvo</button>
+                    <button onclick="stepByStep()" class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700">▶️ Korak-po-korak</button>
+                    <button onclick="resetDemo()" class="bg-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-700">🔄 Reset</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">📈 Statistika</h3>
+                    <div id="datasetStats"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">🎯 Entropija</h3>
+                    <div id="entropyInfo"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">⚡ Trenutni korak</h3>
+                    <div id="currentStep"><p class="text-gray-600">Kliknite dugme za početak</p></div>
+                    <div id="stepControls" style="display:none;" class="mt-4 space-y-2">
+                        <button onclick="previousStep()" class="w-full bg-orange-600 text-white px-4 py-2 rounded-lg">⬅️ Prethodni</button>
+                        <button onclick="nextStep()" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg">Sljedeći ➡️</button>
+                        <p class="text-center text-xs">Korak <span id="stepCounter">0</span> od <span id="totalSteps">0</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="gainTableContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">📊 Informacioni dobitak</h2>
+                <table class="w-full text-sm">
+                    <thead class="bg-blue-600 text-white">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Atribut</th>
+                            <th class="px-4 py-3 text-right">Entropija</th>
+                            <th class="px-4 py-3 text-right">Info Gain</th>
+                            <th class="px-4 py-3 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gainTableBody"></tbody>
+                </table>
+            </div>
+
+            <div id="treeContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">🌳 Drvo odlučivanja</h2>
+                <div id="treeVisualization"></div>
+            </div>
+
+            <div id="rulesContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">📜 If-Then pravila</h2>
+                <div id="rulesOutput"></div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dataset = [], attributes = [], targetAttribute = '', decisionTree = null;
+        let stepMode = false, currentStepIndex = 0, steps = [];
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((h, idx) => row[h] = values[idx]);
+                    data.push(row);
+                }
+            }
+            return { headers, data };
+        }
+
+        function calculateEntropy(data, targetAttr) {
+            const counts = {};
+            data.forEach(row => counts[row[targetAttr]] = (counts[row[targetAttr]] || 0) + 1);
+            let entropy = 0;
+            for (const count of Object.values(counts)) {
+                const p = count / data.length;
+                if (p > 0) entropy -= p * Math.log2(p);
+            }
+            return entropy;
+        }
+
+        function calculateInformationGain(data, attribute, targetAttr) {
+            const totalEntropy = calculateEntropy(data, targetAttr);
+            const values = {};
+            data.forEach(row => {
+                if (!values[row[attribute]]) values[row[attribute]] = [];
+                values[row[attribute]].push(row);
+            });
+            let weightedEntropy = 0;
+            for (const subset of Object.values(values)) {
+                weightedEntropy += (subset.length / data.length) * calculateEntropy(subset, targetAttr);
+            }
+            return totalEntropy - weightedEntropy;
+        }
+
+        function getMajorityClass(data, targetAttr) {
+            const counts = {};
+            data.forEach(row => counts[row[targetAttr]] = (counts[row[targetAttr]] || 0) + 1);
+            return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+        }
+
+        function buildDecisionTree(data, attrs, targetAttr, depth = 0, record = false, path = '') {
+            if (record) steps.push({ type: 'evaluate', data, attrs, depth, path, description: `Evaluacija na dubini ${depth}` });
+            
+            if (data.length === 0) return { type: 'leaf', value: 'unknown', depth };
+            
+            const classes = [...new Set(data.map(row => row[targetAttr]))];
+            if (classes.length === 1) {
+                if (record) steps.push({ type: 'leaf', value: classes[0], depth, count: data.length, description: `Svi primjeri klasa ${classes[0]}` });
+                return { type: 'leaf', value: classes[0], depth, count: data.length };
+            }
+            
+            if (attrs.length === 0) {
+                const maj = getMajorityClass(data, targetAttr);
+                return { type: 'leaf', value: maj, depth, count: data.length };
+            }
+            
+            const gains = {};
+            attrs.forEach(attr => gains[attr] = calculateInformationGain(data, attr, targetAttr));
+            
+            if (record) steps.push({ type: 'calculate_gains', gains: {...gains}, data, depth, description: 'Računanje dobitka' });
+            
+            const bestAttr = Object.keys(gains).reduce((a, b) => gains[a] > gains[b] ? a : b);
+            
+            if (record) steps.push({ type: 'select_attribute', attribute: bestAttr, gain: gains[bestAttr], gains: {...gains}, depth, description: `Izabran ${bestAttr}` });
+            
+            const tree = { type: 'node', attribute: bestAttr, gain: gains[bestAttr], depth, children: {} };
+            const values = [...new Set(data.map(row => row[bestAttr]))];
+            const remainingAttrs = attrs.filter(attr => attr !== bestAttr);
+            
+            values.forEach(value => {
+                if (record) steps.push({ type: 'branch', attribute: bestAttr, value, depth, description: `Grana ${bestAttr}=${value}` });
+                const subset = data.filter(row => row[bestAttr] === value);
+                const newPath = path ? `${path} → ${bestAttr}=${value}` : `${bestAttr}=${value}`;
+                tree.children[value] = buildDecisionTree(subset, remainingAttrs, targetAttr, depth + 1, record, newPath);
+            });
+            
+            return tree;
+        }
+
+        function buildTree() {
+            const { headers, data } = parseCSV(document.getElementById('dataInput').value);
+            if (data.length === 0) { alert('Nema podataka!'); return; }
+            
+            dataset = data;
+            targetAttribute = headers[headers.length - 1];
+            attributes = headers.slice(0, -1);
+            
+            updateStatistics();
+            updateGainTable();
+            
+            decisionTree = buildDecisionTree(dataset, attributes, targetAttribute, 0, false);
+            visualizeTree();
+            generateRules();
+            
+            document.getElementById('gainTableContainer').style.display = 'block';
+            document.getElementById('treeContainer').style.display = 'block';
+            document.getElementById('rulesContainer').style.display = 'block';
+            document.getElementById('stepControls').style.display = 'none';
+            document.getElementById('currentStep').innerHTML = '<div class="bg-green-50 p-3 rounded"><p class="font-bold text-green-900">✅ Drvo kompletno!</p></div>';
+        }
+
+        function stepByStep() {
+            const { headers, data } = parseCSV(document.getElementById('dataInput').value);
+            if (data.length === 0) { alert('Nema podataka!'); return; }
+            
+            dataset = data;
+            targetAttribute = headers[headers.length - 1];
+            attributes = headers.slice(0, -1);
+            steps = [];
+            currentStepIndex = 0;
+            
+            updateStatistics();
+            decisionTree = buildDecisionTree(dataset, attributes, targetAttribute, 0, true);
+            
+            document.getElementById('stepControls').style.display = 'block';
+            document.getElementById('totalSteps').textContent = steps.length;
+            document.getElementById('treeContainer').style.display = 'block';
+            document.getElementById('rulesContainer').style.display = 'none';
+            
+            showStep(0);
+        }
+
+        function showStep(index) {
+            if (index < 0 || index >= steps.length) return;
+            currentStepIndex = index;
+            const step = steps[index];
+            document.getElementById('stepCounter').textContent = index + 1;
+            
+            let html = '';
+            const colors = { evaluate: 'blue', calculate_gains: 'purple', select_attribute: 'green', branch: 'orange', leaf: 'red' };
+            const color = colors[step.type] || 'gray';
+            
+            html = `<div class="bg-${color}-50 rounded p-3"><p class="font-bold text-${color}-900">${step.description}</p>`;
+            
+            if (step.type === 'evaluate') {
+                html += `<p class="text-xs text-${color}-700">Primjera: ${step.data.length}, Atributi: ${step.attrs.join(', ')}</p>`;
+            } else if (step.type === 'calculate_gains') {
+                const sorted = Object.entries(step.gains).sort((a, b) => b[1] - a[1]);
+                html += sorted.map(([a, g]) => `<p class="text-xs text-${color}-700">${a}: ${g.toFixed(4)}</p>`).join('');
+                updateGainTableForStep(step.gains, step.data);
+                document.getElementById('gainTableContainer').style.display = 'block';
+            } else if (step.type === 'select_attribute') {
+                html += `<p class="text-xs text-${color}-700">Atribut: ${step.attribute}, Gain: ${step.gain.toFixed(4)}</p>`;
+            }
+            
+            html += '</div>';
+            document.getElementById('currentStep').innerHTML = html;
+            visualizeTree();
+        }
+
+        function updateGainTableForStep(gains, data) {
+            const tbody = document.getElementById('gainTableBody');
+            const sorted = Object.entries(gains).sort((a, b) => b[1] - a[1]);
+            const best = sorted[0][0];
+            const entropy = calculateEntropy(data, targetAttribute);
+            
+            tbody.innerHTML = sorted.map(([attr, gain], i) => {
+                const isBest = attr === best;
+                return `<tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isBest ? 'bg-green-100' : ''}">
+                    <td class="px-4 py-3 font-semibold ${isBest ? 'text-green-900' : 'text-gray-800'}">${attr}</td>
+                    <td class="px-4 py-3 text-right font-mono">${(entropy - gain).toFixed(4)}</td>
+                    <td class="px-4 py-3 text-right font-mono ${isBest ? 'text-green-700 font-bold' : ''}">${gain.toFixed(4)}</td>
+                    <td class="px-4 py-3 text-center">${isBest ? '<span class="bg-green-600 text-white px-2 py-1 rounded text-xs">✓ BEST</span>' : ''}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function nextStep() {
+            if (currentStepIndex < steps.length - 1) {
+                showStep(currentStepIndex + 1);
+            } else {
+                alert('Posljednji korak!');
+                document.getElementById('rulesContainer').style.display = 'block';
+                generateRules();
+            }
+        }
+
+        function previousStep() {
+            if (currentStepIndex > 0) showStep(currentStepIndex - 1);
+            else alert('Prvi korak!');
+        }
+
+        function updateStatistics() {
+            const classCounts = {};
+            dataset.forEach(row => classCounts[row[targetAttribute]] = (classCounts[row[targetAttribute]] || 0) + 1);
+            const entropy = calculateEntropy(dataset, targetAttribute);
+            
+            document.getElementById('datasetStats').innerHTML = `
+                <div class="space-y-2 text-sm">
+                    <p><strong>Instanci:</strong> ${dataset.length}</p>
+                    <p><strong>Atributi:</strong> ${attributes.length}</p>
+                    ${Object.entries(classCounts).map(([c, n]) => `<p>${c}: ${n} (${(n/dataset.length*100).toFixed(1)}%)</p>`).join('')}
+                </div>`;
+            
+            document.getElementById('entropyInfo').innerHTML = `
+                <div class="space-y-2 text-sm">
+                    <p><strong>Entropija:</strong></p>
+                    <p class="text-2xl font-bold">${entropy.toFixed(4)}</p>
+                </div>`;
+        }
+
+        function updateGainTable() {
+            const gains = {};
+            attributes.forEach(attr => gains[attr] = calculateInformationGain(dataset, attr, targetAttribute));
+            const sorted = Object.entries(gains).sort((a, b) => b[1] - a[1]);
+            const best = sorted[0][0];
+            const entropy = calculateEntropy(dataset, targetAttribute);
+            
+            document.getElementById('gainTableBody').innerHTML = sorted.map(([attr, gain], i) => {
+                const isBest = attr === best;
+                return `<tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isBest ? 'bg-green-100' : ''}">
+                    <td class="px-4 py-3 font-semibold ${isBest ? 'text-green-900' : 'text-gray-800'}">${attr}</td>
+                    <td class="px-4 py-3 text-right">${(entropy - gain).toFixed(4)}</td>
+                    <td class="px-4 py-3 text-right ${isBest ? 'font-bold text-green-700' : ''}">${gain.toFixed(4)}</td>
+                    <td class="px-4 py-3 text-center">${isBest ? '<span class="bg-green-600 text-white px-2 py-1 rounded text-xs">✓ BEST</span>' : ''}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function visualizeTree() {
+            if (!decisionTree) return;
+            document.getElementById('treeVisualization').innerHTML = renderTree(decisionTree);
+        }
+
+        function renderTree(node) {
+            if (node.type === 'leaf') {
+                const color = node.value === 'yes' ? 'bg-green-500' : 'bg-red-500';
+                return `<div class="inline-block m-2"><div class="tree-node ${color} text-white rounded-lg p-4 shadow-lg">
+                    <div class="font-bold">${node.value.toUpperCase()}</div>
+                    <div class="text-xs">Leaf (${node.count || 0})</div>
+                </div></div>`;
+            }
+            
+            const childrenHTML = Object.entries(node.children).map(([value, child]) => `
+                <div class="inline-block">
+                    <div class="text-center mb-2"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">${value}</span></div>
+                    ${renderTree(child)}
+                </div>`).join('');
+            
+            return `<div class="text-center">
+                <div class="tree-node bg-blue-600 text-white rounded-lg p-4 shadow-lg inline-block mb-4">
+                    <div class="font-bold">${node.attribute}?</div>
+                    <div class="text-xs">Gain: ${node.gain?.toFixed(4) || 'N/A'}</div>
+                </div>
+                <div class="flex justify-center gap-4 flex-wrap">${childrenHTML}</div>
+            </div>`;
+        }
+
+        function generateRules() {
+            const rules = [];
+            extractRules(decisionTree, [], rules);
+            document.getElementById('rulesOutput').innerHTML = rules.map((rule, i) => `
+                <div class="bg-gray-50 rounded p-3 border-l-4 ${rule.result === 'yes' ? 'border-green-500' : 'border-red-500'}">
+                    <p class="font-mono text-sm"><strong>Rule ${i+1}:</strong> IF ${rule.conditions.join(' AND ')} 
+                    THEN <span class="${rule.result === 'yes' ? 'text-green-700' : 'text-red-700'} font-bold">${rule.result.toUpperCase()}</span></p>
+                </div>`).join('');
+        }
+
+        function extractRules(node, conditions, rules) {
+            if (node.type === 'leaf') {
+                rules.push({ conditions: conditions.slice(), result: node.value });
+                return;
+            }
+            for (const [value, child] of Object.entries(node.children)) {
+                extractRules(child, [...conditions, `${node.attribute}=${value}`], rules);
+            }
+        }
+
+        function resetDemo() {
+            document.getElementById('dataInput').value = `age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no`;
+            document.getElementById('gainTableContainer').style.display = 'none';
+            document.getElementById('treeContainer').style.display = 'none';
+            document.getElementById('rulesContainer').style.display = 'none';
+            document.getElementById('stepControls').style.display = 'none';
+            document.getElementById('currentStep').innerHTML = '<p class="text-gray-600">Kliknite dugme za početak</p>';
+            dataset = []; attributes = []; decisionTree = null; steps = [];
+        }
+    </script>
+</body>
+</html>

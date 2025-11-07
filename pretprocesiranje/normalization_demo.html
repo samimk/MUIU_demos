@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Normalizacija podataka - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .formula {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                    Normalizacija podataka - Interaktivna Demonstracija
+                </h1>
+                <p class="text-gray-600">
+                    Uporedite različite metode skaliranja podataka
+                </p>
+            </div>
+
+            <!-- Input Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Data Input -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Unos podataka</h2>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Unesite podatke (CSV format):
+                    </label>
+                    <textarea 
+                        id="dataInput" 
+                        class="w-full h-24 p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none font-mono text-sm"
+                        placeholder="150, 200, 175, 230, 190, 165, 210"
+                    >150, 200, 175, 230, 190, 165, 210</textarea>
+                    
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Min-Max: b<sub>min</sub>
+                            </label>
+                            <input 
+                                type="number" 
+                                id="bMin" 
+                                value="0" 
+                                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Min-Max: b<sub>max</sub>
+                            </label>
+                            <input 
+                                type="number" 
+                                id="bMax" 
+                                value="1" 
+                                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                            >
+                        </div>
+                        <div class="flex items-end">
+                            <button 
+                                onclick="processData()" 
+                                class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
+                            >
+                                🔄 Normaliziraj
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Statistika</h2>
+                    <div id="statistics" class="space-y-3">
+                        <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                            <p class="text-xs text-blue-600 font-semibold">Broj podataka</p>
+                            <p class="text-2xl font-bold text-blue-700" id="dataCount">-</p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                            <p class="text-xs text-green-600 font-semibold">Min (a<sub>min</sub>)</p>
+                            <p class="text-2xl font-bold text-green-700" id="minValue">-</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                            <p class="text-xs text-purple-600 font-semibold">Max (a<sub>max</sub>)</p>
+                            <p class="text-2xl font-bold text-purple-700" id="maxValue">-</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                            <p class="text-xs text-orange-600 font-semibold">Mean (μ)</p>
+                            <p class="text-2xl font-bold text-orange-700" id="meanValue">-</p>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-3 border border-red-200">
+                            <p class="text-xs text-red-600 font-semibold">Std Dev (σ)</p>
+                            <p class="text-2xl font-bold text-red-700" id="stdValue">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulas -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📐 Formule normalizacije</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border-2 border-blue-300">
+                        <h3 class="font-bold text-blue-900 mb-2">Min-Max normalizacija</h3>
+                        <div class="bg-white rounded p-3 text-center formula text-lg mb-2">
+                            v<sub>new</sub> = <span class="text-xl">(<span class="text-blue-600">v - a<sub>min</sub></span>) / (<span class="text-purple-600">a<sub>max</sub> - a<sub>min</sub></span>)</span> × (b<sub>max</sub> - b<sub>min</sub>) + b<sub>min</sub>
+                        </div>
+                        <p class="text-sm text-blue-800">Skalira podatke u interval [b<sub>min</sub>, b<sub>max</sub>]</p>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-2 border-green-300">
+                        <h3 class="font-bold text-green-900 mb-2">Z-score normalizacija</h3>
+                        <div class="bg-white rounded p-3 text-center formula text-lg mb-2">
+                            v<sub>new</sub> = <span class="text-xl">(<span class="text-green-600">v - μ</span>) / <span class="text-orange-600">σ</span></span>
+                        </div>
+                        <p class="text-sm text-green-800">Standardizacija sa mean=0 i std=1<br>(normalna distribucija)</p>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border-2 border-purple-300">
+                        <h3 class="font-bold text-purple-900 mb-2">Decimalno skaliranje</h3>
+                        <div class="bg-white rounded p-3 text-center formula text-lg mb-2">
+                            v<sub>new</sub> = <span class="text-xl"><span class="text-purple-600">v</span> / 10<sup>j</sup></span>
+                        </div>
+                        <p class="text-sm text-purple-800">j ∈ ℤ: max(|v<sub>new</sub>|) < 1<br>Pomjera decimalnu tačku</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Rezultati normalizacije</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm" id="resultsTable">
+                        <thead class="bg-gradient-to-r from-slate-700 to-slate-800 text-white">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">Index</th>
+                                <th class="px-4 py-3 text-right font-semibold">Original</th>
+                                <th class="px-4 py-3 text-right font-semibold bg-blue-700">Min-Max</th>
+                                <th class="px-4 py-3 text-right font-semibold bg-green-700">Z-score</th>
+                                <th class="px-4 py-3 text-right font-semibold bg-purple-700">Decimalno</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Visualization -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Vizualizacija</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-600 mb-2">Originalni podaci</h3>
+                        <canvas id="originalChart"></canvas>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-600 mb-2">Normalizirani podaci (poređenje)</h3>
+                        <canvas id="normalizedChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distribution Comparison -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Poređenje distribucija</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div>
+                        <h3 class="text-sm font-semibold text-blue-600 mb-2">Min-Max</h3>
+                        <canvas id="minmaxChart"></canvas>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-green-600 mb-2">Z-score</h3>
+                        <canvas id="zscoreChart"></canvas>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-purple-600 mb-2">Decimalno</h3>
+                        <canvas id="decimalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Info -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">⚖️ Kada koristiti koju metodu?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                        <h3 class="font-bold text-blue-900 mb-2">✅ Min-Max</h3>
+                        <p class="text-sm text-blue-800 mb-2"><strong>Koristi kada:</strong></p>
+                        <ul class="text-sm text-blue-700 space-y-1 mb-3">
+                            <li>• Trebaš specifični opseg [0,1] ili [0,255]</li>
+                            <li>• Za neuronske mreže (aktivacijske funkcije)</li>
+                            <li>• Podaci nemaju outliere</li>
+                            <li>• Za vizualizacije (normalizovane boje)</li>
+                        </ul>
+                        <p class="text-sm text-blue-800 mb-2"><strong>❌ Izbjegavaj:</strong></p>
+                        <ul class="text-sm text-blue-700 space-y-1">
+                            <li>• Kada imaš outliere (jako osjetljivo)</li>
+                            <li>• Ako će se dodavati novi podaci</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                        <h3 class="font-bold text-green-900 mb-2">✅ Z-score</h3>
+                        <p class="text-sm text-green-800 mb-2"><strong>Koristi kada:</strong></p>
+                        <ul class="text-sm text-green-700 space-y-1 mb-3">
+                            <li>• Podaci imaju normalnu distribuciju</li>
+                            <li>• Za algoritme osjetljive na skalu (SVM, KNN)</li>
+                            <li>• Robusno na outliere (bolje od Min-Max)</li>
+                            <li>• Za statističke analize</li>
+                        </ul>
+                        <p class="text-sm text-green-800 mb-2"><strong>❌ Izbjegavaj:</strong></p>
+                        <ul class="text-sm text-green-700 space-y-1">
+                            <li>• Ako podaci nisu normalni</li>
+                            <li>• Teško interpretirati vrijednosti</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                        <h3 class="font-bold text-purple-900 mb-2">✅ Decimalno</h3>
+                        <p class="text-sm text-purple-800 mb-2"><strong>Koristi kada:</strong></p>
+                        <ul class="text-sm text-purple-700 space-y-1 mb-3">
+                            <li>• Trebaš jednostavnu metodu</li>
+                            <li>• Za numeričku stabilnost</li>
+                            <li>• Brzo skaliranje velikih brojeva</li>
+                            <li>• Očuvanje relativnih odnosa</li>
+                        </ul>
+                        <p class="text-sm text-purple-800 mb-2"><strong>❌ Izbjegavaj:</strong></p>
+                        <ul class="text-sm text-purple-700 space-y-1">
+                            <li>• Ako trebaš specifični opseg</li>
+                            <li>• Manje precizno od drugih metoda</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center text-gray-500 text-sm">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+                <p class="mt-1">Sarajevo, 2025. godine</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let originalChart, normalizedChart, minmaxChart, zscoreChart, decimalChart;
+
+        function processData() {
+            const input = document.getElementById('dataInput').value;
+            const bMin = parseFloat(document.getElementById('bMin').value);
+            const bMax = parseFloat(document.getElementById('bMax').value);
+
+            const data = input.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+            
+            if (data.length === 0) {
+                alert('Unesite validne podatke!');
+                return;
+            }
+
+            // Calculate statistics
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const mean = data.reduce((a, b) => a + b, 0) / data.length;
+            const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / data.length;
+            const std = Math.sqrt(variance);
+
+            // Update statistics display
+            document.getElementById('dataCount').textContent = data.length;
+            document.getElementById('minValue').textContent = min.toFixed(2);
+            document.getElementById('maxValue').textContent = max.toFixed(2);
+            document.getElementById('meanValue').textContent = mean.toFixed(2);
+            document.getElementById('stdValue').textContent = std.toFixed(2);
+
+            // Normalize data
+            const minMaxNorm = minMaxNormalization(data, min, max, bMin, bMax);
+            const zScoreNorm = zScoreNormalization(data, mean, std);
+            const decimalNorm = decimalScaling(data);
+
+            // Display results
+            displayResults(data, minMaxNorm, zScoreNorm, decimalNorm);
+            updateCharts(data, minMaxNorm, zScoreNorm, decimalNorm);
+        }
+
+        function minMaxNormalization(data, min, max, bMin, bMax) {
+            return data.map(v => ((v - min) / (max - min)) * (bMax - bMin) + bMin);
+        }
+
+        function zScoreNormalization(data, mean, std) {
+            if (std === 0) return data.map(() => 0);
+            return data.map(v => (v - mean) / std);
+        }
+
+        function decimalScaling(data) {
+            const maxAbs = Math.max(...data.map(v => Math.abs(v)));
+            const j = Math.ceil(Math.log10(maxAbs + 1));
+            const divisor = Math.pow(10, j);
+            return data.map(v => v / divisor);
+        }
+
+        function displayResults(original, minMax, zScore, decimal) {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = original.map((val, i) => `
+                <tr class="${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
+                    <td class="px-4 py-2 font-semibold text-gray-700">${i + 1}</td>
+                    <td class="px-4 py-2 text-right font-mono text-gray-800">${val.toFixed(2)}</td>
+                    <td class="px-4 py-2 text-right font-mono text-blue-700 bg-blue-50">${minMax[i].toFixed(4)}</td>
+                    <td class="px-4 py-2 text-right font-mono text-green-700 bg-green-50">${zScore[i].toFixed(4)}</td>
+                    <td class="px-4 py-2 text-right font-mono text-purple-700 bg-purple-50">${decimal[i].toFixed(4)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateCharts(original, minMax, zScore, decimal) {
+            const labels = original.map((_, i) => `${i + 1}`);
+
+            // Original data chart
+            if (originalChart) originalChart.destroy();
+            const originalCtx = document.getElementById('originalChart').getContext('2d');
+            originalChart = new Chart(originalCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Originalni podaci',
+                        data: original,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+
+            // Normalized comparison chart
+            if (normalizedChart) normalizedChart.destroy();
+            const normalizedCtx = document.getElementById('normalizedChart').getContext('2d');
+            normalizedChart = new Chart(normalizedCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Min-Max',
+                            data: minMax,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Z-score',
+                            data: zScore,
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Decimalno',
+                            data: decimal,
+                            borderColor: 'rgb(168, 85, 247)',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+
+            // Individual distribution charts
+            createDistributionChart('minmaxChart', minMax, 'Min-Max', 'rgb(59, 130, 246)');
+            createDistributionChart('zscoreChart', zScore, 'Z-score', 'rgb(34, 197, 94)');
+            createDistributionChart('decimalChart', decimal, 'Decimalno', 'rgb(168, 85, 247)');
+        }
+
+        function createDistributionChart(canvasId, data, label, color) {
+            const canvas = document.getElementById(canvasId);
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) existingChart.destroy();
+
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map((_, i) => `${i + 1}`),
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: color,
+                        borderColor: color,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+        }
+
+        window.onload = () => processData();
+    </script>
+</body>
+</html>

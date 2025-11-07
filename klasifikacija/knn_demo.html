@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>k-NN Klasifikacija - Univerzalni demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .neighbor-card {
+            transition: all 0.3s ease;
+        }
+        .neighbor-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-pink-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🎯 k-NN Klasifikacija - Univerzalni demo</h1>
+                <p class="text-gray-600">k-Nearest Neighbors algoritam - radi sa bilo kojim CSV podacima</p>
+            </div>
+
+            <!-- Training Data Input -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">💾 Trening podaci (CSV format)</h2>
+                <p class="text-sm text-gray-600 mb-3">
+                    <strong>Format:</strong> Prvi red je zaglavlje. Zadnja kolona je klasa (target), sve ostale su numeriĉki atributi.
+                </p>
+                <textarea id="trainingDataInput" class="w-full h-48 p-4 border-2 border-gray-300 rounded-lg text-sm font-mono"
+                    placeholder="atribut1,atribut2,atribut3,klasa">visina,masa,velicina
+158,45,S
+160,50,S
+162,58,M
+160,59,M
+160,64,L
+165,61,L</textarea>
+                <button onclick="loadTrainingData()" class="mt-3 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-lg">
+                    📥 Učitaj podatke
+                </button>
+                <div id="dataInfo" class="mt-3 text-sm text-gray-600"></div>
+            </div>
+
+            <!-- Input Section -->
+            <div id="querySection" style="display:none;" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Query Input -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">🆕 Nova instanca za klasifikaciju</h2>
+                    <div id="queryInputs" class="space-y-4"></div>
+                    <div class="space-y-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Broj susjeda (k):</label>
+                            <input type="range" id="kValue" min="1" max="7" value="3" class="w-full">
+                            <div class="text-center font-bold text-2xl text-purple-600" id="kDisplay">3</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Metrika udaljenosti:</label>
+                            <select id="distanceMetric" class="w-full p-3 border-2 rounded-lg">
+                                <option value="euclidean">Euclidean distance</option>
+                                <option value="manhattan">Manhattan distance</option>
+                                <option value="cosine">Cosine similarity</option>
+                            </select>
+                        </div>
+                        <button onclick="classify()" class="w-full bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 shadow-lg text-lg">
+                            🔍 Klasifikuj
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">🎯 Rezultat klasifikacije</h2>
+                    <div id="resultContainer" class="flex items-center justify-center h-64">
+                        <p class="text-gray-400 text-center">Unesite vrijednosti i kliknite "Klasifikuj"</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization -->
+            <div id="vizSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Vizualizacija podataka</h2>
+                <div id="chartTypeSelect" class="mb-4">
+                    <label class="block text-sm font-semibold mb-2">Odaberite atribute za prikaz (X i Y osa):</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <select id="xAxisSelect" class="p-2 border-2 rounded-lg"></select>
+                        <select id="yAxisSelect" class="p-2 border-2 rounded-lg"></select>
+                    </div>
+                    <button onclick="updateVisualization()" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                        🔄 Ažuriraj grafikon
+                    </button>
+                </div>
+                <canvas id="scatterChart"></canvas>
+            </div>
+
+            <!-- Neighbors Details -->
+            <div id="neighborsContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">👥 Najbliži susjedi (k-NN)</h2>
+                <div id="neighborsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+
+            <!-- Voting Details -->
+            <div id="votingContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🗳️ Glasanje susjeda</h2>
+                <div id="votingDetails"></div>
+            </div>
+
+            <!-- Training Data Table -->
+            <div id="tableSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Učitani trening podaci</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100" id="tableHeader"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 Kako radi k-NN algoritam?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <h3 class="font-bold text-purple-900 mb-2">1️⃣ Izračunaj udaljenosti</h3>
+                            <p class="text-sm text-purple-800">Za novi primjer, izračunaj udaljenost do svih primjera iz trening skupa koristeći odabranu metriku.</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <h3 class="font-bold text-blue-900 mb-2">2️⃣ Pronađi k najbližih</h3>
+                            <p class="text-sm text-blue-800">Sortiraj primjere po udaljenosti i uzmi prvih k najbližih susjeda.</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                            <h3 class="font-bold text-green-900 mb-2">3️⃣ Glasanje (Voting)</h3>
+                            <p class="text-sm text-green-800">Svaki od k susjeda "glasa" za svoju klasu. Klasa sa najviše glasova pobjeđuje.</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                            <h3 class="font-bold text-orange-900 mb-2">4️⃣ Dodijeli klasu</h3>
+                            <p class="text-sm text-orange-800">Novom primjeru se dodjeljuje klasa koja je dobila većinu glasova.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-300">
+                        <h3 class="font-bold text-yellow-900 mb-2">🎯 Prednosti k-NN:</h3>
+                        <ul class="text-sm text-yellow-800 space-y-1">
+                            <li>✅ <strong>Jednostavan</strong> - lako razumljiv algoritam</li>
+                            <li>✅ <strong>Bez treninga</strong> - lazy learning</li>
+                            <li>✅ <strong>Fleksibilan</strong> - adaptira se na nove podatke</li>
+                            <li>✅ <strong>Intuitivno</strong> - "slični primjeri → slične klase"</li>
+                        </ul>
+                    </div>
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-300">
+                        <h3 class="font-bold text-red-900 mb-2">⚠️ Nedostaci k-NN:</h3>
+                        <ul class="text-sm text-red-800 space-y-1">
+                            <li>❌ <strong>Spor</strong> - računa sve udaljenosti</li>
+                            <li>❌ <strong>Osjetljiv na k</strong> - izbor k je kritičan</li>
+                            <li>❌ <strong>Curse of dimensionality</strong> - problem sa mnogo atributa</li>
+                            <li>❌ <strong>Skaliranje</strong> - atributi moraju biti normalizovani</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-4 bg-indigo-50 rounded-lg p-4 border border-indigo-300">
+                    <h3 class="font-bold text-indigo-900 mb-2">💡 Savjeti za odabir k:</h3>
+                    <ul class="text-sm text-indigo-800 space-y-1">
+                        <li>🔹 <strong>k = 1:</strong> Osjetljiv na outliere, može dovesti do overfittinga</li>
+                        <li>🔹 <strong>Malo k (3-5):</strong> Dobro za lokalne strukture, ali može biti nestabilno</li>
+                        <li>🔹 <strong>Veliko k:</strong> Glađe granice, ali može izgubiti detalje</li>
+                        <li>🔹 <strong>Preporuka:</strong> k obično bira se kao √n ili cross-validation</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm mt-6">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let trainingData = [];
+        let headers = [];
+        let featureNames = [];
+        let targetName = '';
+        let scatterChart = null;
+        let currentNeighbors = [];
+        let currentQuery = null;
+        let xAxisIndex = 0;
+        let yAxisIndex = 1;
+
+        document.getElementById('kValue').addEventListener('input', function() {
+            document.getElementById('kDisplay').textContent = this.value;
+        });
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return null;
+            
+            headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((h, idx) => {
+                        row[h] = values[idx];
+                    });
+                    data.push(row);
+                }
+            }
+            
+            return data;
+        }
+
+        function loadTrainingData() {
+            const csvText = document.getElementById('trainingDataInput').value;
+            const parsed = parseCSV(csvText);
+            
+            if (!parsed || parsed.length === 0) {
+                alert('Nema validnih podataka! Provjerite format CSV-a.');
+                return;
+            }
+            
+            trainingData = parsed;
+            targetName = headers[headers.length - 1];
+            featureNames = headers.slice(0, -1);
+            
+            // Convert numeric features to numbers
+            trainingData = trainingData.map(row => {
+                const newRow = { ...row };
+                featureNames.forEach(feature => {
+                    const num = parseFloat(newRow[feature]);
+                    if (!isNaN(num)) {
+                        newRow[feature] = num;
+                    }
+                });
+                return newRow;
+            });
+            
+            // Check if we have at least 2 numeric features
+            if (featureNames.length < 2) {
+                alert('Potrebna su najmanje 2 numerička atributa za vizualizaciju!');
+                return;
+            }
+            
+            // Update UI
+            document.getElementById('dataInfo').innerHTML = `
+                <div class="bg-green-50 border border-green-300 rounded p-3">
+                    <p class="text-green-900 font-semibold">✅ Podaci uspješno učitani!</p>
+                    <p class="text-green-800 text-sm">Broj primjera: ${trainingData.length}</p>
+                    <p class="text-green-800 text-sm">Atributi: ${featureNames.join(', ')}</p>
+                    <p class="text-green-800 text-sm">Klasa (target): ${targetName}</p>
+                    <p class="text-green-800 text-sm">Jedinstvene klase: ${[...new Set(trainingData.map(r => r[targetName]))].join(', ')}</p>
+                </div>
+            `;
+            
+            // Update k max value
+            const kInput = document.getElementById('kValue');
+            kInput.max = Math.min(trainingData.length, 10);
+            if (parseInt(kInput.value) > trainingData.length) {
+                kInput.value = trainingData.length;
+                document.getElementById('kDisplay').textContent = trainingData.length;
+            }
+            
+            // Setup query inputs
+            setupQueryInputs();
+            
+            // Setup visualization
+            setupVisualization();
+            
+            // Show table
+            updateTrainingDataTable();
+            
+            // Show sections
+            document.getElementById('querySection').style.display = 'grid';
+            document.getElementById('vizSection').style.display = 'block';
+            document.getElementById('tableSection').style.display = 'block';
+        }
+
+        function setupQueryInputs() {
+            const container = document.getElementById('queryInputs');
+            container.innerHTML = featureNames.map(feature => `
+                <div>
+                    <label class="block text-sm font-semibold mb-2">${feature}:</label>
+                    <input type="number" id="input_${feature}" step="any"
+                        class="w-full p-3 border-2 rounded-lg" 
+                        placeholder="Unesite ${feature}">
+                </div>
+            `).join('');
+        }
+
+        function setupVisualization() {
+            const xSelect = document.getElementById('xAxisSelect');
+            const ySelect = document.getElementById('yAxisSelect');
+            
+            xSelect.innerHTML = featureNames.map((f, i) => 
+                `<option value="${i}" ${i === 0 ? 'selected' : ''}>${f}</option>`
+            ).join('');
+            
+            ySelect.innerHTML = featureNames.map((f, i) => 
+                `<option value="${i}" ${i === 1 ? 'selected' : ''}>${f}</option>`
+            ).join('');
+            
+            xAxisIndex = 0;
+            yAxisIndex = 1;
+            
+            initializeChart();
+        }
+
+        function updateVisualization() {
+            xAxisIndex = parseInt(document.getElementById('xAxisSelect').value);
+            yAxisIndex = parseInt(document.getElementById('yAxisSelect').value);
+            
+            if (currentQuery && currentNeighbors.length > 0) {
+                updateChart(currentQuery, currentNeighbors);
+            } else {
+                initializeChart();
+            }
+        }
+
+        function updateTrainingDataTable() {
+            const thead = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+            
+            thead.innerHTML = `<tr>${headers.map(h => `<th class="p-3 text-left">${h}</th>`).join('')}</tr>`;
+            
+            tbody.innerHTML = trainingData.map((row, idx) => `
+                <tr class="border-b hover:bg-gray-50">
+                    ${headers.map(h => `<td class="p-3">${row[h]}</td>`).join('')}
+                </tr>
+            `).join('');
+        }
+
+        function getClassColor(className, index) {
+            const colors = [
+                { bg: 'rgba(34, 197, 94, 0.6)', border: 'rgba(34, 197, 94, 1)' },
+                { bg: 'rgba(59, 130, 246, 0.6)', border: 'rgba(59, 130, 246, 1)' },
+                { bg: 'rgba(239, 68, 68, 0.6)', border: 'rgba(239, 68, 68, 1)' },
+                { bg: 'rgba(168, 85, 247, 0.6)', border: 'rgba(168, 85, 247, 1)' },
+                { bg: 'rgba(251, 146, 60, 0.6)', border: 'rgba(251, 146, 60, 1)' },
+                { bg: 'rgba(236, 72, 153, 0.6)', border: 'rgba(236, 72, 153, 1)' }
+            ];
+            return colors[index % colors.length];
+        }
+
+        function initializeChart() {
+            const ctx = document.getElementById('scatterChart');
+            
+            if (!trainingData.length) return;
+            
+            if (scatterChart) {
+                scatterChart.destroy();
+            }
+            
+            const uniqueClasses = [...new Set(trainingData.map(r => r[targetName]))];
+            const xFeature = featureNames[xAxisIndex];
+            const yFeature = featureNames[yAxisIndex];
+            
+            const datasets = uniqueClasses.map((cls, idx) => {
+                const color = getClassColor(cls, idx);
+                return {
+                    label: cls,
+                    data: trainingData
+                        .filter(r => r[targetName] === cls)
+                        .map(r => ({ x: r[xFeature], y: r[yFeature] })),
+                    backgroundColor: color.bg,
+                    borderColor: color.border,
+                    pointRadius: 8,
+                    pointHoverRadius: 10
+                };
+            });
+
+            scatterChart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { 
+                            display: true, 
+                            text: `${xFeature} vs ${yFeature}` 
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: xFeature } },
+                        y: { title: { display: true, text: yFeature } }
+                    }
+                }
+            });
+        }
+
+        function updateChart(queryPoint, neighbors) {
+            if (!scatterChart) return;
+            
+            const uniqueClasses = [...new Set(trainingData.map(r => r[targetName]))];
+            const xFeature = featureNames[xAxisIndex];
+            const yFeature = featureNames[yAxisIndex];
+            
+            const datasets = uniqueClasses.map((cls, idx) => {
+                const color = getClassColor(cls, idx);
+                return {
+                    label: cls,
+                    data: trainingData
+                        .filter(r => r[targetName] === cls)
+                        .map(r => ({ x: r[xFeature], y: r[yFeature] })),
+                    backgroundColor: color.bg,
+                    borderColor: color.border,
+                    pointRadius: 8,
+                    pointHoverRadius: 10
+                };
+            });
+            
+            datasets.push({
+                label: 'Nova instanca',
+                data: [{ x: queryPoint[xFeature], y: queryPoint[yFeature] }],
+                backgroundColor: 'rgba(168, 85, 247, 1)',
+                borderColor: 'rgba(168, 85, 247, 1)',
+                pointRadius: 15,
+                pointStyle: 'star',
+                pointHoverRadius: 18
+            });
+            
+            datasets.push({
+                label: 'Najbliži susjedi',
+                data: neighbors.map(n => ({ 
+                    x: n.data[xFeature], 
+                    y: n.data[yFeature] 
+                })),
+                backgroundColor: 'rgba(255, 193, 7, 0.8)',
+                borderColor: 'rgba(255, 193, 7, 1)',
+                borderWidth: 3,
+                pointRadius: 12,
+                pointHoverRadius: 14
+            });
+
+            scatterChart.data.datasets = datasets;
+            scatterChart.update();
+        }
+
+        function normalizeData(data) {
+            const normalized = [];
+            const ranges = {};
+            
+            featureNames.forEach(feature => {
+                const values = data.map(r => r[feature]);
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                ranges[feature] = { min, max, range: max - min || 1 };
+            });
+            
+            return { ranges, normalize: (row) => {
+                const norm = {};
+                featureNames.forEach(feature => {
+                    const r = ranges[feature];
+                    norm[feature] = (row[feature] - r.min) / r.range;
+                });
+                return norm;
+            }};
+        }
+
+        function calculateDistance(p1, p2, metric, normalizer) {
+            const n1 = normalizer.normalize(p1);
+            const n2 = normalizer.normalize(p2);
+            
+            if (metric === 'euclidean') {
+                let sum = 0;
+                featureNames.forEach(f => {
+                    sum += Math.pow(n1[f] - n2[f], 2);
+                });
+                return Math.sqrt(sum);
+            } else if (metric === 'manhattan') {
+                let sum = 0;
+                featureNames.forEach(f => {
+                    sum += Math.abs(n1[f] - n2[f]);
+                });
+                return sum;
+            } else if (metric === 'cosine') {
+                let dotProduct = 0, mag1 = 0, mag2 = 0;
+                featureNames.forEach(f => {
+                    dotProduct += n1[f] * n2[f];
+                    mag1 += n1[f] * n1[f];
+                    mag2 += n2[f] * n2[f];
+                });
+                return 1 - (dotProduct / (Math.sqrt(mag1) * Math.sqrt(mag2)));
+            }
+            return 0;
+        }
+
+        function classify() {
+            if (trainingData.length === 0) {
+                alert('Prvo učitajte trening podatke!');
+                return;
+            }
+            
+            // Get query values
+            currentQuery = {};
+            let hasAllValues = true;
+            
+            featureNames.forEach(feature => {
+                const val = parseFloat(document.getElementById(`input_${feature}`).value);
+                if (isNaN(val)) {
+                    hasAllValues = false;
+                } else {
+                    currentQuery[feature] = val;
+                }
+            });
+            
+            if (!hasAllValues) {
+                alert('Molimo unesite sve vrijednosti atributa!');
+                return;
+            }
+            
+            const k = parseInt(document.getElementById('kValue').value);
+            const metric = document.getElementById('distanceMetric').value;
+
+            if (k > trainingData.length) {
+                alert(`k ne može biti veće od broja primjera (${trainingData.length})!`);
+                return;
+            }
+
+            const normalizer = normalizeData([...trainingData, currentQuery]);
+
+            // Calculate distances
+            const distances = trainingData.map(d => ({
+                data: d,
+                distance: calculateDistance(currentQuery, d, metric, normalizer)
+            }));
+
+            // Sort and get k nearest
+            distances.sort((a, b) => a.distance - b.distance);
+            currentNeighbors = distances.slice(0, k);
+
+            // Voting
+            const votes = {};
+            currentNeighbors.forEach(n => {
+                const cls = n.data[targetName];
+                votes[cls] = (votes[cls] || 0) + 1;
+            });
+
+            // Find winner
+            const winner = Object.keys(votes).reduce((a, b) => votes[a] > votes[b] ? a : b);
+            const confidence = (votes[winner] / k * 100).toFixed(1);
+
+            // Display results
+            displayResult(winner, confidence, votes, k);
+            displayNeighbors(currentNeighbors);
+            displayVoting(votes, k, winner);
+            updateChart(currentQuery, currentNeighbors);
+
+            document.getElementById('neighborsContainer').style.display = 'block';
+            document.getElementById('votingContainer').style.display = 'block';
+        }
+
+        function displayResult(cls, confidence, votes, k) {
+            const container = document.getElementById('resultContainer');
+            
+            container.innerHTML = `
+                <div class="text-center">
+                    <div class="text-6xl mb-4">🎯</div>
+                    <div class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white inline-block px-6 py-3 rounded-lg mb-4">
+                        ${cls}
+                    </div>
+                    <div class="text-2xl text-gray-700 font-semibold mt-4">
+                        Pouzdanost: ${confidence}%
+                    </div>
+                    <div class="text-sm text-gray-600 mt-2">
+                        ${votes[cls]} od ${k} susjeda glasalo za "${cls}"
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayNeighbors(neighbors) {
+            const container = document.getElementById('neighborsList');
+            container.innerHTML = neighbors.map((n, idx) => `
+                <div class="neighbor-card bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg p-4 border-2 border-yellow-300">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="font-bold text-lg text-gray-800">Susjed ${idx + 1}</div>
+                        <div class="px-3 py-1 rounded-full font-bold bg-purple-200 text-purple-900">${n.data[targetName]}</div>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        ${featureNames.map(f => `
+                            <div class="bg-white rounded p-2">
+                                <strong>${f}:</strong> ${n.data[f]}
+                            </div>
+                        `).join('')}
+                        <div class="bg-white rounded p-2">
+                            <strong>Udaljenost:</strong> ${n.distance.toFixed(4)}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="text-xs text-gray-600 mb-1">Relativna udaljenost:</div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-gradient-to-r from-green-500 to-red-500 h-2 rounded-full" 
+                                 style="width: ${Math.min(100, n.distance * 100).toFixed(0)}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayVoting(votes, k, winner) {
+            const container = document.getElementById('votingDetails');
+            const classes = Object.keys(votes).sort((a, b) => votes[b] - votes[a]);
+            
+            let html = '<div class="space-y-4">';
+            
+            classes.forEach(cls => {
+                const count = votes[cls];
+                const percentage = (count / k * 100).toFixed(1);
+                const isWinner = cls === winner;
+                
+                html += `
+                    <div class="bg-gray-50 rounded-lg p-4 ${isWinner ? 'border-2 border-purple-500' : 'border border-gray-300'}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-lg ${isWinner ? 'text-purple-900' : 'text-gray-700'}">
+                                Klasa: ${cls} ${isWinner ? '🏆' : ''}
+                            </span>
+                            <span class="text-sm">${count} / ${k} glasova</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-6">
+                            <div class="bg-gradient-to-r ${isWinner ? 'from-purple-500 to-purple-600' : 'from-gray-400 to-gray-500'} h-6 rounded-full flex items-center justify-center text-white text-sm font-bold" 
+                                 style="width: ${percentage}%">
+                                ${percentage}%
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Check for ties
+            const sortedVotes = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+            if (sortedVotes.length > 1 && sortedVotes[0][1] === sortedVotes[1][1]) {
+                html += `
+                    <div class="mt-4 bg-yellow-50 rounded-lg p-4 border border-yellow-400">
+                        <p class="font-bold text-yellow-900">⚠️ Izjednačeno glasanje!</p>
+                        <p class="text-sm text-yellow-800 mt-2">Susjedi su podijeljeni. Razmotrite povećanje k ili promjenu metrike.</p>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+                

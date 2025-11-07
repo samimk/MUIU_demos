@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Forest - Demo sa Train/Test Split</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .mini-tree {
+            transition: all 0.3s ease;
+        }
+        .mini-tree:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-emerald-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🌲 Random Forest - Šuma odlučivanja</h1>
+                <p class="text-gray-600">Ensemble learning sa train/test split - Poređenje Random Forest vs Jedno drvo</p>
+            </div>
+
+            <!-- Data Input -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Podaci za treniranje</h2>
+                <textarea id="dataInput" class="w-full h-48 p-4 border-2 border-gray-300 rounded-lg text-sm font-mono">age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no</textarea>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Broj drveta u šumi:</label>
+                        <input type="number" id="numTrees" value="10" min="1" max="20" class="w-full p-3 border-2 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Bootstrap % (uzorkovanje):</label>
+                        <input type="number" id="bootstrapPercent" value="70" min="50" max="100" class="w-full p-3 border-2 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Max features po drvetu:</label>
+                        <select id="maxFeatures" class="w-full p-3 border-2 rounded-lg">
+                            <option value="sqrt">√n (Square root)</option>
+                            <option value="log2">log₂(n)</option>
+                            <option value="all">Svi atributi</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Test set % (podjela):</label>
+                        <input type="number" id="testPercent" value="30" min="10" max="50" class="w-full p-3 border-2 rounded-lg">
+                    </div>
+                </div>
+
+                <div class="flex gap-4 mt-4">
+                    <button onclick="trainModels()" class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 shadow-lg">
+                        🌲 Treniraj oba modela
+                    </button>
+                    <button onclick="resetDemo()" class="bg-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-700 shadow-lg">
+                        🔄 Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Split Info -->
+            <div id="splitInfo" style="display:none;" class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-lg p-6 mb-6 border-2 border-blue-200">
+                <h3 class="text-lg font-bold text-gray-800 mb-3">📂 Podjela podataka (Train/Test Split)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg p-4 shadow">
+                        <p class="font-semibold text-blue-900">🎓 Training set</p>
+                        <p class="text-3xl font-bold text-blue-700" id="trainSize"></p>
+                        <p class="text-sm text-blue-600">instanci za učenje</p>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow">
+                        <p class="font-semibold text-purple-900">🧪 Test set</p>
+                        <p class="text-3xl font-bold text-purple-700" id="testSize"></p>
+                        <p class="text-sm text-purple-600">instanci za evaluaciju</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Comparison -->
+            <div id="performanceContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">🎯 Performanse modela - Train vs Test</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Random Forest Performance -->
+                    <div class="border-2 border-green-300 rounded-lg p-4 bg-green-50">
+                        <h3 class="text-lg font-bold text-green-900 mb-3">🌲 Random Forest</h3>
+                        <div class="space-y-3">
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <p class="text-sm text-gray-600">Training Accuracy:</p>
+                                <p class="text-2xl font-bold text-green-700" id="rfTrainAcc"></p>
+                            </div>
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <p class="text-sm text-gray-600">Test Accuracy:</p>
+                                <p class="text-2xl font-bold text-green-700" id="rfTestAcc"></p>
+                            </div>
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <p class="text-sm text-gray-600">Overfitting:</p>
+                                <p class="text-xl font-bold" id="rfOverfit"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Single Tree Performance -->
+                    <div class="border-2 border-blue-300 rounded-lg p-4 bg-blue-50">
+                        <h3 class="text-lg font-bold text-blue-900 mb-3">🌳 Jedno drvo (Decision Tree)</h3>
+                        <div class="space-y-3">
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <p class="text-sm text-gray-600">Training Accuracy:</p>
+                                <p class="text-2xl font-bold text-blue-700" id="dtTrainAcc"></p>
+                            </div>
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <p class="text-sm text-gray-600">Test Accuracy:</p>
+                                <p class="text-2xl font-bold text-blue-700" id="dtTestAcc"></p>
+                            </div>
+                            <div class="bg-white rounded p-3 shadow-sm">
+                                <p class="text-sm text-gray-600">Overfitting:</p>
+                                <p class="text-xl font-bold" id="dtOverfit"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-bold text-gray-800 mb-3">📊 Poređenje Train vs Test Accuracy</h3>
+                        <canvas id="trainTestChart"></canvas>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 mb-3">📉 Generalizacija (Test Accuracy)</h3>
+                        <canvas id="testComparisonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insights -->
+            <div id="insightsContainer" style="display:none;" class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-lg p-6 mb-6 border-2 border-yellow-300">
+                <h2 class="text-xl font-bold text-orange-900 mb-4">💡 Analiza rezultata</h2>
+                <div id="insightsContent"></div>
+            </div>
+
+            <!-- Forest Visualization -->
+            <div id="forestContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">🌲 Random Forest - Vizualizacija šume</h2>
+                <div id="forestVisualization" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
+            </div>
+
+            <!-- Feature Importance -->
+            <div id="importanceContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">⭐ Važnost atributa (Feature Importance)</h2>
+                <canvas id="importanceChart"></canvas>
+            </div>
+
+            <!-- Classification Section -->
+            <div id="classificationContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">🔍 Klasifikuj novi primjer</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div id="classifySection"></div>
+                    <div id="votingVisualization"></div>
+                </div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">📚 Kako radi Random Forest?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                            <h3 class="font-bold text-green-900 mb-2">1. Bootstrap Sampling</h3>
+                            <p class="text-sm text-green-800">Svako drvo trenira se na random podskupu podataka (sa zamjenom). Npr. 70% instanci se bira nasumično.</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <h3 class="font-bold text-blue-900 mb-2">2. Random Feature Selection</h3>
+                            <p class="text-sm text-blue-800">U svakom čvoru, samo podskup atributa se razmatra (√n ili log₂(n)). Smanjuje korelaciju između drveta.</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <h3 class="font-bold text-purple-900 mb-2">3. Train/Test Split</h3>
+                            <p class="text-sm text-purple-800">Podaci se dijele na trening (70-90%) i test set (10-30%). Model uči na training setu, a evaluira se na test setu.</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                            <h3 class="font-bold text-orange-900 mb-2">4. Voting (Glasanje)</h3>
+                            <p class="text-sm text-orange-800">Za klasifikaciju, svako drvo daje svoj vote. Većinski vote pobjeđuje (majority voting).</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 bg-yellow-50 rounded-lg p-4 border border-yellow-300">
+                    <h3 class="font-bold text-yellow-900 mb-2">🎯 Zašto je Random Forest bolji?</h3>
+                    <ul class="text-sm text-yellow-800 space-y-1">
+                        <li>✅ <strong>Reducira overfitting</strong> - više drveta = bolja generalizacija</li>
+                        <li>✅ <strong>Robustniji</strong> - greška jednog drveta se kompenzira ostalima</li>
+                        <li>✅ <strong>Veća test accuracy</strong> - ensemble je uvijek bolji od pojedinačnog modela</li>
+                        <li>✅ <strong>Manja razlika Train-Test</strong> - manji overfitting</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let trainSet = [], testSet = [], attributes = [], targetAttribute = '';
+        let randomForest = [], singleTree = null;
+        let trainTestChart = null, testComparisonChart = null, importanceChart = null;
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((h, idx) => row[h] = values[idx]);
+                    data.push(row);
+                }
+            }
+            return { headers, data };
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function splitTrainTest(data, testPercent) {
+            const shuffled = shuffleArray(data);
+            const testSize = Math.floor(data.length * testPercent / 100);
+            const trainSize = data.length - testSize;
+
+            return {
+                train: shuffled.slice(0, trainSize),
+                test: shuffled.slice(trainSize)
+            };
+        }
+
+        function calculateEntropy(data, targetAttr) {
+            const counts = {};
+            data.forEach(row => counts[row[targetAttr]] = (counts[row[targetAttr]] || 0) + 1);
+            let entropy = 0;
+            for (const count of Object.values(counts)) {
+                const p = count / data.length;
+                if (p > 0) entropy -= p * Math.log2(p);
+            }
+            return entropy;
+        }
+
+        function calculateInformationGain(data, attribute, targetAttr) {
+            const totalEntropy = calculateEntropy(data, targetAttr);
+            const values = {};
+            data.forEach(row => {
+                if (!values[row[attribute]]) values[row[attribute]] = [];
+                values[row[attribute]].push(row);
+            });
+            let weightedEntropy = 0;
+            for (const subset of Object.values(values)) {
+                weightedEntropy += (subset.length / data.length) * calculateEntropy(subset, targetAttr);
+            }
+            return totalEntropy - weightedEntropy;
+        }
+
+        function getMajorityClass(data, targetAttr) {
+            const counts = {};
+            data.forEach(row => counts[row[targetAttr]] = (counts[row[targetAttr]] || 0) + 1);
+            return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+        }
+
+        function bootstrapSample(data, percentage) {
+            const sampleSize = Math.floor(data.length * percentage / 100);
+            const sample = [];
+            for (let i = 0; i < sampleSize; i++) {
+                const randomIdx = Math.floor(Math.random() * data.length);
+                sample.push(data[randomIdx]);
+            }
+            return sample;
+        }
+
+        function selectRandomFeatures(attrs, method) {
+            const n = attrs.length;
+            let numFeatures;
+
+            if (method === 'sqrt') {
+                numFeatures = Math.max(1, Math.floor(Math.sqrt(n)));
+            } else if (method === 'log2') {
+                numFeatures = Math.max(1, Math.floor(Math.log2(n)));
+            } else {
+                numFeatures = n;
+            }
+
+            const shuffled = [...attrs].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, numFeatures);
+        }
+
+        function buildTree(data, attrs, targetAttr, depth = 0, maxDepth = 10) {
+            if (data.length === 0 || depth >= maxDepth) {
+                return { type: 'leaf', value: 'unknown', depth };
+            }
+
+            const classes = [...new Set(data.map(row => row[targetAttr]))];
+            if (classes.length === 1) {
+                return { type: 'leaf', value: classes[0], depth, count: data.length };
+            }
+
+            if (attrs.length === 0) {
+                return { type: 'leaf', value: getMajorityClass(data, targetAttr), depth, count: data.length };
+            }
+
+            const gains = {};
+            attrs.forEach(attr => gains[attr] = calculateInformationGain(data, attr, targetAttr));
+            const bestAttr = Object.keys(gains).reduce((a, b) => gains[a] > gains[b] ? a : b);
+
+            const tree = { type: 'node', attribute: bestAttr, depth, children: {} };
+            const values = [...new Set(data.map(row => row[bestAttr]))];
+            const remainingAttrs = attrs.filter(attr => attr !== bestAttr);
+
+            values.forEach(value => {
+                const subset = data.filter(row => row[bestAttr] === value);
+                tree.children[value] = buildTree(subset, remainingAttrs, targetAttr, depth + 1, maxDepth);
+            });
+
+            return tree;
+        }
+
+        function predictTree(tree, instance) {
+            if (tree.type === 'leaf') {
+                return tree.value;
+            }
+
+            const attrValue = instance[tree.attribute];
+            if (tree.children[attrValue]) {
+                return predictTree(tree.children[attrValue], instance);
+            }
+
+            const childValues = Object.values(tree.children);
+            if (childValues.length > 0 && childValues[0].type === 'leaf') {
+                return childValues[0].value;
+            }
+            return 'unknown';
+        }
+
+        function predictForest(instance) {
+            const votes = {};
+            randomForest.forEach(model => {
+                const prediction = predictTree(model.tree, instance);
+                votes[prediction] = (votes[prediction] || 0) + 1;
+            });
+
+            const sortedVotes = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+            return {
+                prediction: sortedVotes[0][0],
+                votes: votes,
+                confidence: (sortedVotes[0][1] / randomForest.length * 100).toFixed(1)
+            };
+        }
+
+        function calculateAccuracy(model, dataset, isForest = false) {
+            let correct = 0;
+            dataset.forEach(instance => {
+                const prediction = isForest ? predictForest(instance).prediction : predictTree(model, instance);
+                if (prediction === instance[targetAttribute]) correct++;
+            });
+            return (correct / dataset.length * 100).toFixed(1);
+        }
+
+        function trainModels() {
+            const { headers, data } = parseCSV(document.getElementById('dataInput').value);
+            if (data.length === 0) { alert('Nema podataka!'); return; }
+
+            targetAttribute = headers[headers.length - 1];
+            attributes = headers.slice(0, -1);
+
+            const testPercent = parseInt(document.getElementById('testPercent').value);
+            const split = splitTrainTest(data, testPercent);
+            trainSet = split.train;
+            testSet = split.test;
+
+            document.getElementById('trainSize').textContent = trainSet.length;
+            document.getElementById('testSize').textContent = testSet.length;
+            document.getElementById('splitInfo').style.display = 'block';
+
+            const numTrees = parseInt(document.getElementById('numTrees').value);
+            const bootstrapPercent = parseInt(document.getElementById('bootstrapPercent').value);
+            const maxFeaturesMethod = document.getElementById('maxFeatures').value;
+
+            // Train Random Forest
+            randomForest = [];
+            for (let i = 0; i < numTrees; i++) {
+                const bootstrapData = bootstrapSample(trainSet, bootstrapPercent);
+                const randomFeatures = selectRandomFeatures(attributes, maxFeaturesMethod);
+                const tree = buildTree(bootstrapData, randomFeatures, targetAttribute);
+                randomForest.push({
+                    tree: tree,
+                    features: randomFeatures,
+                    sampleSize: bootstrapData.length
+                });
+            }
+
+            // Train Single Tree
+            singleTree = buildTree(trainSet, attributes, targetAttribute);
+
+            // Calculate accuracies
+            const rfTrainAcc = calculateAccuracy(null, trainSet, true);
+            const rfTestAcc = calculateAccuracy(null, testSet, true);
+            const dtTrainAcc = calculateAccuracy(singleTree, trainSet, false);
+            const dtTestAcc = calculateAccuracy(singleTree, testSet, false);
+
+            displayPerformance(rfTrainAcc, rfTestAcc, dtTrainAcc, dtTestAcc);
+            visualizeForest();
+            calculateFeatureImportance();
+            setupClassification();
+            generateInsights(rfTrainAcc, rfTestAcc, dtTrainAcc, dtTestAcc);
+
+            document.getElementById('performanceContainer').style.display = 'block';
+            document.getElementById('forestContainer').style.display = 'block';
+            document.getElementById('importanceContainer').style.display = 'block';
+            document.getElementById('classificationContainer').style.display = 'block';
+            document.getElementById('insightsContainer').style.display = 'block';
+        }
+
+        function displayPerformance(rfTrain, rfTest, dtTrain, dtTest) {
+            document.getElementById('rfTrainAcc').textContent = rfTrain + '%';
+            document.getElementById('rfTestAcc').textContent = rfTest + '%';
+            document.getElementById('dtTrainAcc').textContent = dtTrain + '%';
+            document.getElementById('dtTestAcc').textContent = dtTest + '%';
+
+            const rfOverfit = (parseFloat(rfTrain) - parseFloat(rfTest)).toFixed(1);
+            const dtOverfit = (parseFloat(dtTrain) - parseFloat(dtTest)).toFixed(1);
+
+            document.getElementById('rfOverfit').innerHTML = `${rfOverfit}% <span class="text-xs">${rfOverfit < 10 ? '✅ Nisko' : '⚠️ Visoko'}</span>`;
+            document.getElementById('dtOverfit').innerHTML = `${dtOverfit}% <span class="text-xs">${dtOverfit < 10 ? '✅ Nisko' : '⚠️ Visoko'}</span>`;
+
+            updateTrainTestChart(rfTrain, rfTest, dtTrain, dtTest);
+            updateTestComparisonChart(rfTest, dtTest);
+        }
+
+        function updateTrainTestChart(rfTrain, rfTest, dtTrain, dtTest) {
+            const ctx = document.getElementById('trainTestChart');
+            if (trainTestChart) trainTestChart.destroy();
+
+            trainTestChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Random Forest', 'Jedno drvo'],
+                    datasets: [
+                        {
+                            label: 'Training Accuracy (%)',
+                            data: [parseFloat(rfTrain), parseFloat(dtTrain)],
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Test Accuracy (%)',
+                            data: [parseFloat(rfTest), parseFloat(dtTest)],
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+        }
+
+        function updateTestComparisonChart(rfTest, dtTest) {
+            const ctx = document.getElementById('testComparisonChart');
+            if (testComparisonChart) testComparisonChart.destroy();
+
+            testComparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Random Forest', 'Jedno drvo'],
+                    datasets: [{
+                        label: 'Test Accuracy (%)',
+                        data: [parseFloat(rfTest), parseFloat(dtTest)],
+                        backgroundColor: ['rgba(34, 197, 94, 0.7)', 'rgba(239, 68, 68, 0.7)'],
+                        borderColor: ['rgba(34, 197, 94, 1)', 'rgba(239, 68, 68, 1)'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+        }
+
+        function generateInsights(rfTrain, rfTest, dtTrain, dtTest) {
+            const rfOverfit = parseFloat(rfTrain) - parseFloat(rfTest);
+            const dtOverfit = parseFloat(dtTrain) - parseFloat(dtTest);
+            const testImprovement = parseFloat(rfTest) - parseFloat(dtTest);
+
+            let insights = '<div class="space-y-3">';
+
+            if (testImprovement > 0) {
+                insights += `
+                    <div class="bg-green-100 border border-green-400 rounded-lg p-3">
+                        <p class="font-bold text-green-900">✅ Random Forest je bolji!</p>
+                        <p class="text-sm text-green-800">Test accuracy je ${testImprovement.toFixed(1)}% viša od pojedinačnog drveta.</p>
+                    </div>
+                `;
+            }
+
+            if (rfOverfit < dtOverfit) {
+                insights += `
+                    <div class="bg-blue-100 border border-blue-400 rounded-lg p-3">
+                        <p class="font-bold text-blue-900">✅ Manje overfittinga!</p>
+                        <p class="text-sm text-blue-800">Random Forest ima manju razliku između train i test (${rfOverfit.toFixed(1)}% vs ${dtOverfit.toFixed(1)}%), što znači bolju generalizaciju.</p>
+                    </div>
+                `;
+            }
+
+            if (dtOverfit > 15) {
+                insights += `
+                    <div class="bg-orange-100 border border-orange-400 rounded-lg p-3">
+                        <p class="font-bold text-orange-900">⚠️ Pojedinačno drvo overfitta!</p>
+                        <p class="text-sm text-orange-800">Razlika od ${dtOverfit.toFixed(1)}% ukazuje da drvo previše "pamti" trening podatke.</p>
+                    </div>
+                `;
+            }
+
+            insights += `
+                <div class="bg-purple-100 border border-purple-400 rounded-lg p-3">
+                    <p class="font-bold text-purple-900">📊 Zaključak:</p>
+                    <p class="text-sm text-purple-800">Ensemble metode (Random Forest) redukuju varijansu i poboljšavaju generalizaciju na novim podacima. To je ključna prednost u mašinskom učenju!</p>
+                </div>
+            `;
+
+            insights += '</div>';
+            document.getElementById('insightsContent').innerHTML = insights;
+        }
+
+        function visualizeForest() {
+            const container = document.getElementById('forestVisualization');
+            container.innerHTML = randomForest.map((model, index) => {
+                const depth = getTreeDepth(model.tree);
+                const leafCount = countLeaves(model.tree);
+                return `
+                    <div class="mini-tree bg-gradient-to-br from-green-100 to-green-200 rounded-lg p-4 border-2 border-green-400 shadow-lg">
+                        <div class="text-center">
+                            <div class="text-2xl mb-2">🌲</div>
+                            <div class="font-bold text-green-900">Drvo ${index + 1}</div>
+                            <div class="text-xs text-green-700 mt-2 space-y-1">
+                                <p>Dubina: ${depth}</p>
+                                <p>Listova: ${leafCount}</p>
+                                <p class="truncate" title="${model.features.join(', ')}">Atributi: ${model.features.length}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getTreeDepth(tree) {
+            if (tree.type === 'leaf') return tree.depth || 0;
+            let maxDepth = tree.depth || 0;
+            for (const child of Object.values(tree.children || {})) {
+                maxDepth = Math.max(maxDepth, getTreeDepth(child));
+            }
+            return maxDepth;
+        }
+
+        function countLeaves(tree) {
+            if (tree.type === 'leaf') return 1;
+            let count = 0;
+            for (const child of Object.values(tree.children || {})) {
+                count += countLeaves(child);
+            }
+            return count;
+        }
+
+        function calculateFeatureImportance() {
+            const importance = {};
+            attributes.forEach(attr => importance[attr] = 0);
+
+            randomForest.forEach(model => {
+                model.features.forEach(feature => {
+                    importance[feature]++;
+                });
+            });
+
+            const ctx = document.getElementById('importanceChart');
+            if (importanceChart) importanceChart.destroy();
+
+            const sortedImportance = Object.entries(importance).sort((a, b) => b[1] - a[1]);
+
+            importanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedImportance.map(([attr]) => attr),
+                    datasets: [{
+                        label: 'Broj pojavljivanja u drvetima',
+                        data: sortedImportance.map(([, count]) => count),
+                        backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                        borderColor: 'rgba(168, 85, 247, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function setupClassification() {
+            const section = document.getElementById('classifySection');
+            section.innerHTML = `
+                <div class="space-y-3">
+                    <h3 class="font-bold text-gray-800">Unesite vrijednosti atributa:</h3>
+                    ${attributes.map(attr => {
+                        const values = [...new Set(trainSet.map(row => row[attr]))];
+                        return `
+                            <div>
+                                <label class="text-xs font-semibold">${attr}:</label>
+                                <select id="input_${attr}" class="w-full p-2 border rounded text-sm">
+                                    ${values.map(v => `<option value="${v}">${v}</option>`).join('')}
+                                </select>
+                            </div>
+                        `;
+                    }).join('')}
+                    <button onclick="classifyInstance()" class="w-full bg-purple-600 text-white px-4 py-2 rounded font-semibold hover:bg-purple-700 mt-2">
+                        🔍 Klasifikuj
+                    </button>
+                </div>
+            `;
+        }
+
+        function classifyInstance() {
+            const instance = {};
+            attributes.forEach(attr => {
+                instance[attr] = document.getElementById(`input_${attr}`).value;
+            });
+
+            const rfResult = predictForest(instance);
+            const dtResult = predictTree(singleTree, instance);
+
+            const votingViz = document.getElementById('votingVisualization');
+            const voteEntries = Object.entries(rfResult.votes).sort((a, b) => b[1] - a[1]);
+            const totalVotes = randomForest.length;
+
+            votingViz.innerHTML = `
+                <div class="space-y-4">
+                    <h3 class="font-bold text-gray-800">Rezultati klasifikacije:</h3>
+
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <p class="font-bold text-purple-900 mb-2">Instance:</p>
+                        <p class="text-sm text-purple-700">${attributes.map(attr => `${attr}=${instance[attr]}`).join(', ')}</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-green-100 rounded-lg p-3 border-2 border-green-500">
+                            <p class="font-semibold text-green-900">🌲 Random Forest</p>
+                            <p class="text-2xl font-bold text-green-700">${rfResult.prediction.toUpperCase()}</p>
+                            <p class="text-xs text-green-600">Pouzdanost: ${rfResult.confidence}%</p>
+                        </div>
+                        <div class="bg-blue-100 rounded-lg p-3 border-2 border-blue-500">
+                            <p class="font-semibold text-blue-900">🌳 Jedno drvo</p>
+                            <p class="text-2xl font-bold text-blue-700">${dtResult.toUpperCase()}</p>
+                            <p class="text-xs text-blue-600">Direktna predikcija</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="font-bold text-gray-800 mb-3">🗳️ Glasanje Random Forest modela:</p>
+                        <div class="space-y-2">
+                            ${voteEntries.map(([cls, votes]) => {
+                                const percentage = (votes / totalVotes * 100).toFixed(1);
+                                const isWinner = cls === rfResult.prediction;
+                                return `
+                                    <div class="bg-white rounded-lg p-3 ${isWinner ? 'border-2 border-green-500' : 'border border-gray-300'}">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-semibold ${isWinner ? 'text-green-900' : 'text-gray-700'}">${cls.toUpperCase()} ${isWinner ? '✅' : ''}</span>
+                                            <span class="text-sm">${votes} / ${totalVotes} drveta</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-4">
+                                            <div class="bg-gradient-to-r ${isWinner ? 'from-green-500 to-green-600' : 'from-gray-400 to-gray-500'} h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                                 style="width: ${percentage}%">
+                                                ${percentage}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    ${rfResult.prediction !== dtResult ? `
+                        <div class="bg-yellow-50 rounded-lg p-3 border border-yellow-400">
+                            <p class="font-semibold text-yellow-900">⚠️ Različite predikcije!</p>
+                            <p class="text-sm text-yellow-800">Random Forest i pojedinačno drvo daju različite rezultate. Random Forest je obično pouzdaniji zbog ensemble efekta.</p>
+                        </div>
+                    ` : `
+                        <div class="bg-green-50 rounded-lg p-3 border border-green-400">
+                            <p class="font-semibold text-green-900">✅ Iste predikcije!</p>
+                            <p class="text-sm text-green-800">Oba modela se slažu u ovom slučaju.</p>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        function resetDemo() {
+            document.getElementById('dataInput').value = `age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no`;
+
+            document.getElementById('splitInfo').style.display = 'none';
+            document.getElementById('performanceContainer').style.display = 'none';
+            document.getElementById('forestContainer').style.display = 'none';
+            document.getElementById('importanceContainer').style.display = 'none';
+            document.getElementById('classificationContainer').style.display = 'none';
+            document.getElementById('insightsContainer').style.display = 'none';
+
+            randomForest = [];
+            singleTree = null;
+            trainSet = [];
+            testSet = [];
+
+            if (trainTestChart) trainTestChart.destroy();
+            if (testComparisonChart) testComparisonChart.destroy();
+            if (importanceChart) importanceChart.destroy();
+        }
+    </script>
+</body>
+</html>

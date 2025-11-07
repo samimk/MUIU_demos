@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widrow-Hoff Gradient Descent Vizualizacija</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .canvas-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        canvas {
+            width: 100%;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+        }
+        
+        #weightSpaceCanvas {
+            height: 450px;
+        }
+        
+        #functionCanvas {
+            height: 450px;
+        }
+        
+        .canvas-label {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .control-section {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .control-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-success {
+            background: #51cf66;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #40c057;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(81, 207, 102, 0.3);
+        }
+        
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #fa5252;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #868e96;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #6c757d;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(134, 142, 150, 0.3);
+        }
+        
+        .slider-container {
+            margin: 15px 0;
+        }
+        
+        .slider-container label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .value-display {
+            text-align: center;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 5px;
+        }
+        
+        .info-display {
+            background: #e7f5ff;
+            border-left: 4px solid #339af0;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .info-display p {
+            margin: 5px 0;
+            color: #1864ab;
+            font-size: 13px;
+        }
+        
+        .info-box {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .info-box strong {
+            color: #667eea;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .status-training {
+            background: #fff3bf;
+            color: #e67700;
+        }
+        
+        .status-idle {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .footer {
+            background: #343a40;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        .instructions {
+            background: #fff9db;
+            border-left: 4px solid #fab005;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .instructions h4 {
+            color: #e67700;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+            color: #495057;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+        }
+        
+        @media (max-width: 1400px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Widrow-Hoff Gradient Descent Vizualizacija</h1>
+            <p>Putanja težina u prostoru greške (Weight Space)</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="canvas-section">
+                <canvas id="weightSpaceCanvas"></canvas>
+                <div class="canvas-label">Weight Space (b, w) - Konturni dijagram MSE</div>
+                
+                <div class="info-box">
+                    <p><strong>Trenutne težine:</strong></p>
+                    <p>b (bias) = <span id="w0">0.00</span></p>
+                    <p>w (slope) = <span id="w1">0.00</span></p>
+                    <p>MSE = <span id="mse">0.0000</span></p>
+                    <p>Epoha: <span id="epoch">0</span></p>
+                </div>
+            </div>
+            
+            <div class="canvas-section">
+                <canvas id="functionCanvas"></canvas>
+                <div class="canvas-label">Output Space - Naučena funkcija</div>
+                
+                <div class="info-box">
+                    <p><strong>Optimalne težine:</strong></p>
+                    <p>b* = <span id="w0opt">?</span></p>
+                    <p>w* = <span id="w1opt">?</span></p>
+                    <p>MSE* = <span id="mseopt">?</span></p>
+                    <p><em>Pokazane kao ⭐ u weight space</em></p>
+                </div>
+            </div>
+            
+            <div class="control-panel">
+                <div class="instructions">
+                    <h4>📝 Uputstvo:</h4>
+                    <ul>
+                        <li>Generiši podatke koristeći ciljnu funkciju</li>
+                        <li><strong>Klik na lijevi grafik</strong> - postavi početne težine</li>
+                        <li>Pokreni <strong>Auto Train</strong></li>
+                        <li>Posmatraj putanju težina ka minimumu</li>
+                        <li>Crvena tačka = trenutne težine</li>
+                        <li>Zvjezdica = optimalne težine</li>
+                    </ul>
+                </div>
+                
+                <div class="control-section">
+                    <h3>🎯 Ciljna funkcija</h3>
+                    <button class="btn-primary" onclick="loadSimpleLinear()">Linearna (jednostavna)</button>
+                    <button class="btn-primary" onclick="loadSteepLinear()">Linearna (strma)</button>
+                    <button class="btn-primary" onclick="loadRandomLinear()">Linearna (random)</button>
+                </div>
+                
+                <div class="control-section">
+                    <h3>⚙️ Parametri</h3>
+                    <div class="slider-container">
+                        <label for="learningRate">Learning Rate (η):</label>
+                        <input type="range" id="learningRate" min="0.001" max="0.5" step="0.001" value="0.05" oninput="updateLearningRate()">
+                        <div class="value-display"><span id="learningRateValue">0.050</span></div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label for="trainSpeed">Brzina animacije:</label>
+                        <input type="range" id="trainSpeed" min="10" max="500" step="10" value="100" oninput="updateTrainSpeed()">
+                        <div class="value-display"><span id="trainSpeedValue">100</span> ms</div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label for="numPoints">Broj tačaka podataka:</label>
+                        <input type="range" id="numPoints" min="5" max="30" step="5" value="15" oninput="updateNumPoints()">
+                        <div class="value-display"><span id="numPointsValue">15</span></div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label for="noiseLevel">Nivo šuma:</label>
+                        <input type="range" id="noiseLevel" min="0" max="0.3" step="0.01" value="0.05" oninput="updateNoiseLevel()">
+                        <div class="value-display"><span id="noiseLevelValue">0.05</span></div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label for="maxEpochs">Maksimalni broj epoha:</label>
+                        <input type="range" id="maxEpochs" min="50" max="1000" step="50" value="200" oninput="updateMaxEpochs()">
+                        <div class="value-display"><span id="maxEpochsValue">200</span></div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>🎓 Kontrole</h3>
+                    <button class="btn-success" onclick="trainStep()">Train Step</button>
+                    <button class="btn-primary" onclick="autoTrain()" id="autoTrainBtn">▶ Auto Train</button>
+                    <button class="btn-secondary" onclick="resetWeights()">Reset Težine</button>
+                    <button class="btn-danger" onclick="resetAll()">Reset All</button>
+                    
+                    <div class="status status-idle" id="status">
+                        Generiši podatke za početak
+                    </div>
+                </div>
+                
+                <div class="info-display">
+                    <p><strong>ℹ️ Gradient Descent:</strong></p>
+                    <p>• MSE površina je konveksna (paraboloid)</p>
+                    <p>• Gradijent pokazuje smjer najstrmijeg rasta</p>
+                    <p>• Idemo SUPROTNO od gradijenta (pad)</p>
+                    <p>• Veliki η → brži ali manje stabilan</p>
+                    <p>• Mali η → sporiji ali stabilniji</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Mašinsko učenje i inteligentno upravljanje</strong></p>
+            <p>Red. prof. dr Samim Konjicija, 2025.</p>
+        </div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const wsCanvas = document.getElementById('weightSpaceCanvas');
+        const wsCtx = wsCanvas.getContext('2d');
+        const funcCanvas = document.getElementById('functionCanvas');
+        const funcCtx = funcCanvas.getContext('2d');
+        
+        // Network state
+        let weights = [0.5, 0.5];  // [w0, w1]
+        let learningRate = 0.05;
+        let epoch = 0;
+        let weightHistory = [];
+        let isTraining = false;
+        let trainingInterval = null;
+        
+        // Data
+        let dataPoints = [];
+        let targetW0 = 0.5;
+        let targetW1 = 1.0;
+        let numPoints = 15;
+        let noiseLevel = 0.05;
+        let maxEpochs = 200;
+        
+        // Optimal weights (calculated from data)
+        let optimalWeights = null;
+        
+        // Canvas dimensions
+        function resizeCanvas() {
+            wsCanvas.width = wsCanvas.parentElement.clientWidth - 40;
+            wsCanvas.height = 450;
+            funcCanvas.width = funcCanvas.parentElement.clientWidth - 40;
+            funcCanvas.height = 450;
+            if (typeof draw === 'function') {
+                draw();
+            }
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Mouse click on weight space canvas to set initial weights
+        wsCanvas.addEventListener('click', (e) => {
+            if (dataPoints.length === 0) return;
+            
+            const rect = wsCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const padding = 50;
+            const width = wsCanvas.width - 2 * padding;
+            const height = wsCanvas.height - 2 * padding;
+            
+            // Check if click is within the graph area
+            if (x < padding || x > wsCanvas.width - padding || y < padding || y > wsCanvas.height - padding) {
+                return;
+            }
+            
+            // Define weight space bounds
+            const w0Range = optimalWeights ? 
+                [optimalWeights[0] - 2, optimalWeights[0] + 2] : 
+                [-1, 2];
+            const w1Range = optimalWeights ? 
+                [optimalWeights[1] - 2, optimalWeights[1] + 2] : 
+                [-1, 3];
+            
+            // Convert canvas coordinates to weight values
+            const w0 = w0Range[0] + (x - padding) / width * (w0Range[1] - w0Range[0]);
+            const w1 = w1Range[0] + (1 - (y - padding) / height) * (w1Range[1] - w1Range[0]);
+            
+            // Set new weights
+            stopTraining();
+            weights = [w0, w1];
+            epoch = 0;
+            weightHistory = [[...weights]];
+            
+            draw();
+            updateDisplay();
+        });
+        
+        // Calculate MSE for given weights
+        function calculateMSE(w0, w1) {
+            if (dataPoints.length === 0) return 0;
+            
+            let sumSquaredError = 0;
+            for (let point of dataPoints) {
+                const predicted = w0 + w1 * point.x;
+                const error = point.y - predicted;
+                sumSquaredError += error * error;
+            }
+            
+            return sumSquaredError / dataPoints.length;
+        }
+        
+        // Calculate optimal weights using least squares
+        function calculateOptimalWeights() {
+            if (dataPoints.length === 0) return null;
+            
+            let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
+            const n = dataPoints.length;
+            
+            for (let point of dataPoints) {
+                sumX += point.x;
+                sumY += point.y;
+                sumXX += point.x * point.x;
+                sumXY += point.x * point.y;
+            }
+            
+            const w1 = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const w0 = (sumY - w1 * sumX) / n;
+            
+            return [w0, w1];
+        }
+        
+        // Training step
+        function trainStep() {
+            if (dataPoints.length === 0) return;
+            
+            let gradW0 = 0;
+            let gradW1 = 0;
+            
+            // Calculate gradient
+            for (let point of dataPoints) {
+                const predicted = weights[0] + weights[1] * point.x;
+                const error = point.y - predicted;
+                
+                gradW0 += -2 * error * 1;  // derivative w.r.t w0
+                gradW1 += -2 * error * point.x;  // derivative w.r.t w1
+            }
+            
+            gradW0 /= dataPoints.length;
+            gradW1 /= dataPoints.length;
+            
+            // Update weights (gradient descent)
+            weights[0] -= learningRate * gradW0;
+            weights[1] -= learningRate * gradW1;
+            
+            // Store history
+            weightHistory.push([...weights]);
+            if (weightHistory.length > 200) {
+                weightHistory.shift();
+            }
+            
+            epoch++;
+            draw();
+            updateDisplay();
+        }
+        
+        function autoTrain() {
+            if (isTraining) {
+                stopTraining();
+            } else {
+                startTraining();
+            }
+        }
+        
+        function startTraining() {
+            if (dataPoints.length === 0) return;
+            
+            isTraining = true;
+            document.getElementById('autoTrainBtn').textContent = '⏸ Stop';
+            document.getElementById('autoTrainBtn').classList.remove('btn-primary');
+            document.getElementById('autoTrainBtn').classList.add('btn-danger');
+            
+            const speed = parseInt(document.getElementById('trainSpeed').value);
+            
+            trainingInterval = setInterval(() => {
+                trainStep();
+                
+                const mse = calculateMSE(weights[0], weights[1]);
+                if (mse < 0.0001 || epoch > maxEpochs) {
+                    stopTraining();
+                }
+            }, speed);
+        }
+        
+        function stopTraining() {
+            isTraining = false;
+            if (trainingInterval) {
+                clearInterval(trainingInterval);
+                trainingInterval = null;
+            }
+            document.getElementById('autoTrainBtn').textContent = '▶ Auto Train';
+            document.getElementById('autoTrainBtn').classList.remove('btn-danger');
+            document.getElementById('autoTrainBtn').classList.add('btn-primary');
+        }
+        
+        // Drawing functions
+        function draw() {
+            drawWeightSpace();
+            drawFunctionSpace();
+        }
+        
+        function drawWeightSpace() {
+            wsCtx.clearRect(0, 0, wsCanvas.width, wsCanvas.height);
+            
+            if (dataPoints.length === 0) {
+                wsCtx.fillStyle = '#999';
+                wsCtx.font = '16px Arial';
+                wsCtx.textAlign = 'center';
+                wsCtx.fillText('Generiši podatke za početak...', wsCanvas.width / 2, wsCanvas.height / 2);
+                return;
+            }
+            
+            const padding = 50;
+            const width = wsCanvas.width - 2 * padding;
+            const height = wsCanvas.height - 2 * padding;
+            
+            // Define weight space bounds
+            const w0Range = optimalWeights ? 
+                [optimalWeights[0] - 2, optimalWeights[0] + 2] : 
+                [-1, 2];
+            const w1Range = optimalWeights ? 
+                [optimalWeights[1] - 2, optimalWeights[1] + 2] : 
+                [-1, 3];
+            
+            // Helper functions for coordinate transformation
+            function w0ToCanvas(w0) {
+                return padding + ((w0 - w0Range[0]) / (w0Range[1] - w0Range[0])) * width;
+            }
+            
+            function w1ToCanvas(w1) {
+                return wsCanvas.height - padding - ((w1 - w1Range[0]) / (w1Range[1] - w1Range[0])) * height;
+            }
+            
+            // Fill background gradient first
+            const gradient = wsCtx.createRadialGradient(
+                wsCanvas.width / 2, wsCanvas.height / 2, 0,
+                wsCanvas.width / 2, wsCanvas.height / 2, Math.max(width, height)
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(1, 'rgba(102, 126, 234, 0.1)');
+            wsCtx.fillStyle = gradient;
+            wsCtx.fillRect(padding, padding, width, height);
+            
+            // Draw MSE contours
+            const contourLevels = [0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0];
+            
+            for (let levelIdx = 0; levelIdx < contourLevels.length; levelIdx++) {
+                const targetMSE = contourLevels[levelIdx];
+                
+                // Create grid of MSE values
+                const gridSize = 50;
+                const mseGrid = [];
+                
+                for (let i = 0; i <= gridSize; i++) {
+                    mseGrid[i] = [];
+                    for (let j = 0; j <= gridSize; j++) {
+                        const w0 = w0Range[0] + (w0Range[1] - w0Range[0]) * i / gridSize;
+                        const w1 = w1Range[0] + (w1Range[1] - w1Range[0]) * j / gridSize;
+                        mseGrid[i][j] = calculateMSE(w0, w1);
+                    }
+                }
+                
+                // Draw contour using marching squares-like approach
+                const alpha = 0.4 + 0.4 * levelIdx / contourLevels.length;
+                wsCtx.strokeStyle = `rgba(102, 126, 234, ${alpha})`;
+                wsCtx.fillStyle = `rgba(102, 126, 234, ${alpha})`;
+                wsCtx.lineWidth = 1.5;
+                
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        const w0_i = w0Range[0] + (w0Range[1] - w0Range[0]) * i / gridSize;
+                        const w0_i1 = w0Range[0] + (w0Range[1] - w0Range[0]) * (i + 1) / gridSize;
+                        const w1_j = w1Range[0] + (w1Range[1] - w1Range[0]) * j / gridSize;
+                        const w1_j1 = w1Range[0] + (w1Range[1] - w1Range[0]) * (j + 1) / gridSize;
+                        
+                        const mse00 = mseGrid[i][j];
+                        const mse10 = mseGrid[i + 1][j];
+                        const mse01 = mseGrid[i][j + 1];
+                        const mse11 = mseGrid[i + 1][j + 1];
+                        
+                        // Check if contour crosses this cell
+                        const minMSE = Math.min(mse00, mse10, mse01, mse11);
+                        const maxMSE = Math.max(mse00, mse10, mse01, mse11);
+                        
+                        if (minMSE <= targetMSE && targetMSE <= maxMSE) {
+                            // Draw a point (simplified contour)
+                            const cx = w0ToCanvas((w0_i + w0_i1) / 2);
+                            const cy = w1ToCanvas((w1_j + w1_j1) / 2);
+                            
+                            wsCtx.beginPath();
+                            wsCtx.arc(cx, cy, 2, 0, 2 * Math.PI);
+                            wsCtx.fill();
+                        }
+                    }
+                }
+            }
+            
+            // Draw axes
+            wsCtx.strokeStyle = '#333';
+            wsCtx.lineWidth = 2;
+            
+            // W0 axis
+            wsCtx.beginPath();
+            wsCtx.moveTo(padding, wsCanvas.height - padding);
+            wsCtx.lineTo(wsCanvas.width - padding, wsCanvas.height - padding);
+            wsCtx.stroke();
+            
+            // W1 axis
+            wsCtx.beginPath();
+            wsCtx.moveTo(padding, padding);
+            wsCtx.lineTo(padding, wsCanvas.height - padding);
+            wsCtx.stroke();
+            
+            // Labels
+            wsCtx.fillStyle = '#333';
+            wsCtx.font = 'bold 14px Arial';
+            wsCtx.textAlign = 'center';
+            wsCtx.fillText('b (bias)', wsCanvas.width / 2, wsCanvas.height - 10);
+            
+            wsCtx.save();
+            wsCtx.translate(15, wsCanvas.height / 2);
+            wsCtx.rotate(-Math.PI / 2);
+            wsCtx.fillText('w (slope)', 0, 0);
+            wsCtx.restore();
+            
+            // Axis ticks and labels
+            wsCtx.font = '11px Arial';
+            for (let i = 0; i <= 4; i++) {
+                const w0 = w0Range[0] + (w0Range[1] - w0Range[0]) * i / 4;
+                const x = w0ToCanvas(w0);
+                wsCtx.fillText(w0.toFixed(1), x, wsCanvas.height - padding + 20);
+                
+                const w1 = w1Range[0] + (w1Range[1] - w1Range[0]) * i / 4;
+                const y = w1ToCanvas(w1);
+                wsCtx.textAlign = 'right';
+                wsCtx.fillText(w1.toFixed(1), padding - 10, y + 4);
+                wsCtx.textAlign = 'center';
+            }
+            
+            // Draw optimal weights (star)
+            if (optimalWeights) {
+                const optX = w0ToCanvas(optimalWeights[0]);
+                const optY = w1ToCanvas(optimalWeights[1]);
+                
+                wsCtx.fillStyle = '#ffd43b';
+                wsCtx.strokeStyle = '#fab005';
+                wsCtx.lineWidth = 2;
+                
+                // Draw star
+                wsCtx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+                    const r = i % 2 === 0 ? 12 : 6;
+                    const x = optX + r * Math.cos(angle);
+                    const y = optY + r * Math.sin(angle);
+                    if (i === 0) wsCtx.moveTo(x, y);
+                    else wsCtx.lineTo(x, y);
+                }
+                wsCtx.closePath();
+                wsCtx.fill();
+                wsCtx.stroke();
+            }
+            
+            // Draw weight trajectory
+            if (weightHistory.length > 1) {
+                wsCtx.strokeStyle = '#7950f2';
+                wsCtx.lineWidth = 2;
+                wsCtx.beginPath();
+                
+                for (let i = 0; i < weightHistory.length; i++) {
+                    const x = w0ToCanvas(weightHistory[i][0]);
+                    const y = w1ToCanvas(weightHistory[i][1]);
+                    
+                    if (i === 0) wsCtx.moveTo(x, y);
+                    else wsCtx.lineTo(x, y);
+                }
+                wsCtx.stroke();
+                
+                // Draw dots along path
+                for (let i = 0; i < weightHistory.length; i += 5) {
+                    const x = w0ToCanvas(weightHistory[i][0]);
+                    const y = w1ToCanvas(weightHistory[i][1]);
+                    
+                    wsCtx.beginPath();
+                    wsCtx.arc(x, y, 3, 0, 2 * Math.PI);
+                    wsCtx.fillStyle = '#7950f2';
+                    wsCtx.fill();
+                }
+            }
+            
+            // Draw current weights (red dot)
+            const currX = w0ToCanvas(weights[0]);
+            const currY = w1ToCanvas(weights[1]);
+            
+            wsCtx.beginPath();
+            wsCtx.arc(currX, currY, 8, 0, 2 * Math.PI);
+            wsCtx.fillStyle = '#ff6b6b';
+            wsCtx.fill();
+            wsCtx.strokeStyle = '#fa5252';
+            wsCtx.lineWidth = 2;
+            wsCtx.stroke();
+        }
+        
+        function drawFunctionSpace() {
+            funcCtx.clearRect(0, 0, funcCanvas.width, funcCanvas.height);
+            
+            if (dataPoints.length === 0) {
+                funcCtx.fillStyle = '#999';
+                funcCtx.font = '16px Arial';
+                funcCtx.textAlign = 'center';
+                funcCtx.fillText('Generiši podatke za početak...', funcCanvas.width / 2, funcCanvas.height / 2);
+                return;
+            }
+            
+            const padding = 50;
+            const width = funcCanvas.width - 2 * padding;
+            const height = funcCanvas.height - 2 * padding;
+            
+            function xToCanvas(x) {
+                return padding + x * width;
+            }
+            
+            function yToCanvas(y) {
+                return funcCanvas.height - padding - y * height;
+            }
+            
+            // Draw grid
+            funcCtx.strokeStyle = '#e9ecef';
+            funcCtx.lineWidth = 1;
+            
+            for (let i = 0; i <= 10; i++) {
+                const x = i / 10;
+                const cx = xToCanvas(x);
+                funcCtx.beginPath();
+                funcCtx.moveTo(cx, yToCanvas(0));
+                funcCtx.lineTo(cx, yToCanvas(1));
+                funcCtx.stroke();
+                
+                const cy = yToCanvas(x);
+                funcCtx.beginPath();
+                funcCtx.moveTo(xToCanvas(0), cy);
+                funcCtx.lineTo(xToCanvas(1), cy);
+                funcCtx.stroke();
+            }
+            
+            // Draw axes
+            funcCtx.strokeStyle = '#333';
+            funcCtx.lineWidth = 2;
+            
+            funcCtx.beginPath();
+            funcCtx.moveTo(xToCanvas(0), yToCanvas(0));
+            funcCtx.lineTo(xToCanvas(1), yToCanvas(0));
+            funcCtx.stroke();
+            
+            funcCtx.beginPath();
+            funcCtx.moveTo(xToCanvas(0), yToCanvas(0));
+            funcCtx.lineTo(xToCanvas(0), yToCanvas(1));
+            funcCtx.stroke();
+            
+            // Labels
+            funcCtx.fillStyle = '#333';
+            funcCtx.font = 'bold 14px Arial';
+            funcCtx.textAlign = 'center';
+            funcCtx.fillText('x', funcCanvas.width - 20, yToCanvas(0) + 4);
+            funcCtx.fillText('y', xToCanvas(0) - 4, 20);
+            
+            // Draw target function (if optimal weights exist)
+            if (optimalWeights) {
+                funcCtx.strokeStyle = '#51cf66';
+                funcCtx.lineWidth = 2;
+                funcCtx.setLineDash([5, 5]);
+                funcCtx.beginPath();
+                
+                for (let i = 0; i <= 100; i++) {
+                    const x = i / 100;
+                    const y = optimalWeights[0] + optimalWeights[1] * x;
+                    const cx = xToCanvas(x);
+                    const cy = yToCanvas(Math.max(0, Math.min(1, y)));
+                    
+                    if (i === 0) funcCtx.moveTo(cx, cy);
+                    else funcCtx.lineTo(cx, cy);
+                }
+                funcCtx.stroke();
+                funcCtx.setLineDash([]);
+            }
+            
+            // Draw learned function
+            funcCtx.strokeStyle = '#667eea';
+            funcCtx.lineWidth = 3;
+            funcCtx.beginPath();
+            
+            for (let i = 0; i <= 100; i++) {
+                const x = i / 100;
+                const y = weights[0] + weights[1] * x;
+                const cx = xToCanvas(x);
+                const cy = yToCanvas(Math.max(0, Math.min(1, y)));
+                
+                if (i === 0) funcCtx.moveTo(cx, cy);
+                else funcCtx.lineTo(cx, cy);
+            }
+            funcCtx.stroke();
+            
+            // Draw data points
+            for (let point of dataPoints) {
+                const cx = xToCanvas(point.x);
+                const cy = yToCanvas(point.y);
+                
+                funcCtx.beginPath();
+                funcCtx.arc(cx, cy, 5, 0, 2 * Math.PI);
+                funcCtx.fillStyle = '#4dabf7';
+                funcCtx.fill();
+                funcCtx.strokeStyle = '#1971c2';
+                funcCtx.lineWidth = 2;
+                funcCtx.stroke();
+            }
+        }
+        
+        // Update functions
+        function updateDisplay() {
+            document.getElementById('w0').textContent = weights[0].toFixed(3);
+            document.getElementById('w1').textContent = weights[1].toFixed(3);
+            document.getElementById('mse').textContent = calculateMSE(weights[0], weights[1]).toFixed(4);
+            document.getElementById('epoch').textContent = epoch;
+            
+            if (optimalWeights) {
+                document.getElementById('w0opt').textContent = optimalWeights[0].toFixed(3);
+                document.getElementById('w1opt').textContent = optimalWeights[1].toFixed(3);
+                document.getElementById('mseopt').textContent = calculateMSE(optimalWeights[0], optimalWeights[1]).toFixed(4);
+            }
+            
+            updateStatus();
+        }
+        
+        function updateStatus() {
+            const statusDiv = document.getElementById('status');
+            
+            if (dataPoints.length === 0) {
+                statusDiv.className = 'status status-idle';
+                statusDiv.textContent = 'Generiši podatke za početak';
+                return;
+            }
+            
+            if (isTraining) {
+                statusDiv.className = 'status status-training';
+                statusDiv.textContent = '🔄 Učenje u toku...';
+            } else {
+                const mse = calculateMSE(weights[0], weights[1]);
+                statusDiv.className = 'status status-idle';
+                statusDiv.textContent = `MSE: ${mse.toFixed(4)} | Epoha: ${epoch}`;
+            }
+        }
+        
+        function updateLearningRate() {
+            learningRate = parseFloat(document.getElementById('learningRate').value);
+            document.getElementById('learningRateValue').textContent = learningRate.toFixed(3);
+        }
+        
+        function updateTrainSpeed() {
+            const speed = document.getElementById('trainSpeed').value;
+            document.getElementById('trainSpeedValue').textContent = speed;
+            if (isTraining) {
+                stopTraining();
+                startTraining();
+            }
+        }
+        
+        function updateNumPoints() {
+            numPoints = parseInt(document.getElementById('numPoints').value);
+            document.getElementById('numPointsValue').textContent = numPoints;
+        }
+        
+        function updateNoiseLevel() {
+            noiseLevel = parseFloat(document.getElementById('noiseLevel').value);
+            document.getElementById('noiseLevelValue').textContent = noiseLevel.toFixed(2);
+        }
+        
+        function updateMaxEpochs() {
+            maxEpochs = parseInt(document.getElementById('maxEpochs').value);
+            document.getElementById('maxEpochsValue').textContent = maxEpochs;
+        }
+        
+        // Data generation
+        function generateData(w0, w1) {
+            dataPoints = [];
+            targetW0 = w0;
+            targetW1 = w1;
+            
+            for (let i = 0; i < numPoints; i++) {
+                const x = i / (numPoints - 1);
+                const y = w0 + w1 * x;
+                const noise = (Math.random() - 0.5) * noiseLevel;
+                
+                dataPoints.push({
+                    x: x,
+                    y: Math.max(0, Math.min(1, y + noise))
+                });
+            }
+            
+            optimalWeights = calculateOptimalWeights();
+            resetWeights();
+        }
+        
+        function loadSimpleLinear() {
+            generateData(0.2, 0.6);
+        }
+        
+        function loadSteepLinear() {
+            generateData(0.1, 1.5);
+        }
+        
+        function loadRandomLinear() {
+            const w0 = Math.random() * 0.4 + 0.1;
+            const w1 = Math.random() * 1.2 + 0.3;
+            generateData(w0, w1);
+        }
+        
+        function resetWeights() {
+            stopTraining();
+            weights = [Math.random() * 0.8 - 0.2, Math.random() * 2];
+            epoch = 0;
+            weightHistory = [[...weights]];
+            draw();
+            updateDisplay();
+        }
+        
+        function resetAll() {
+            stopTraining();
+            dataPoints = [];
+            optimalWeights = null;
+            weights = [0.5, 0.5];
+            epoch = 0;
+            weightHistory = [];
+            draw();
+            updateDisplay();
+        }
+        
+        // Initial setup
+        loadSimpleLinear();
+        draw();
+        updateDisplay();
+    </script>
+</body>
+</html>

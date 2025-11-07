@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Noise Cancellation Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .diagram-section {
+            padding: 30px;
+            background: #f8f9fa;
+            text-align: center;
+        }
+        
+        .system-diagram {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .system-diagram svg {
+            width: 100%;
+            height: auto;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .signals-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .signal-canvas {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .signal-label {
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0 5px 0;
+            font-size: 14px;
+        }
+        
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .control-section {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .control-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-success {
+            background: #51cf66;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #40c057;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(81, 207, 102, 0.3);
+        }
+        
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #fa5252;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+        }
+        
+        .slider-container {
+            margin: 15px 0;
+        }
+        
+        .slider-container label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .value-display {
+            text-align: center;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 5px;
+        }
+        
+        .info-box {
+            background: #e7f5ff;
+            border-left: 4px solid #339af0;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            color: #1864ab;
+            font-size: 13px;
+        }
+        
+        .metric-box {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .status-idle {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .status-running {
+            background: #d3f9d8;
+            color: #2b8a3e;
+        }
+        
+        .status-training {
+            background: #fff3bf;
+            color: #e67700;
+        }
+        
+        .footer {
+            background: #343a40;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        .instructions {
+            background: #fff9db;
+            border-left: 4px solid #fab005;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .instructions h4 {
+            color: #e67700;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+            color: #495057;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Adaptive Noise Cancellation</h1>
+            <p>Potiskivanje smetnji pomoću Widrow-Hoff algoritma</p>
+        </div>
+        
+        <div class="diagram-section">
+            <div class="system-diagram">
+                <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Useful Signal Source -->
+                    <rect x="20" y="50" width="100" height="60" fill="#51cf66" stroke="#2b8a3e" stroke-width="2" rx="5"/>
+                    <text x="70" y="85" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Korisni</text>
+                    <text x="70" y="100" text-anchor="middle" font-size="14" font-weight="bold" fill="white">signal</text>
+                    
+                    <!-- Noise Source -->
+                    <rect x="20" y="190" width="100" height="60" fill="#ff6b6b" stroke="#c92a2a" stroke-width="2" rx="5"/>
+                    <text x="70" y="220" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Smetnja</text>
+                    <text x="70" y="235" text-anchor="middle" font-size="14" font-weight="bold" fill="white">(šum)</text>
+                    
+                    <!-- Summer 1 (adds noise to signal) -->
+                    <circle cx="200" cy="80" r="25" fill="white" stroke="#333" stroke-width="2"/>
+                    <line x1="185" y1="80" x2="215" y2="80" stroke="#333" stroke-width="2"/>
+                    <line x1="200" y1="65" x2="200" y2="95" stroke="#333" stroke-width="2"/>
+                    
+                    <!-- Propagation path box -->
+                    <rect x="160" y="190" width="100" height="60" fill="#4dabf7" stroke="#1971c2" stroke-width="2" rx="5"/>
+                    <text x="210" y="215" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Staza</text>
+                    <text x="210" y="230" text-anchor="middle" font-size="12" font-weight="bold" fill="white">prostiranja</text>
+                    <text x="210" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="white">smetnje</text>
+                    
+                    <!-- Adaptive filter -->
+                    <rect x="360" y="190" width="100" height="60" fill="#667eea" stroke="#5568d3" stroke-width="2" rx="5"/>
+                    <text x="410" y="215" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Linearni</text>
+                    <text x="410" y="230" text-anchor="middle" font-size="12" font-weight="bold" fill="white">neuron sa</text>
+                    <text x="410" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="white">adaptivnim</text>
+                    
+                    <!-- Summer 2 (subtracts noise) -->
+                    <circle cx="560" cy="80" r="25" fill="white" stroke="#333" stroke-width="2"/>
+                    <line x1="545" y1="80" x2="575" y2="80" stroke="#333" stroke-width="2"/>
+                    <text x="560" y="72" text-anchor="middle" font-size="20" font-weight="bold" fill="#333">-</text>
+                    
+                    <!-- Output -->
+                    <rect x="640" y="50" width="140" height="60" fill="#51cf66" stroke="#2b8a3e" stroke-width="2" rx="5"/>
+                    <text x="710" y="75" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Izlaz</text>
+                    <text x="710" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="white">(očišćen signal)</text>
+                    <text x="710" y="105" text-anchor="middle" font-size="14" font-weight="bold" fill="white">e(t)</text>
+                    
+                    <!-- Arrows -->
+                    <!-- Useful signal to summer1 -->
+                    <line x1="120" y1="80" x2="175" y2="80" stroke="#51cf66" stroke-width="3" marker-end="url(#arrowgreen)"/>
+                    
+                    <!-- Noise to propagation -->
+                    <line x1="120" y1="220" x2="160" y2="220" stroke="#ff6b6b" stroke-width="3" marker-end="url(#arrowred)"/>
+                    
+                    <!-- Propagation to summer1 -->
+                    <line x1="210" y1="190" x2="210" y2="100" stroke="#ff6b6b" stroke-width="3" marker-end="url(#arrowred)"/>
+                    
+                    <!-- Summer1 to summer2 -->
+                    <line x1="225" y1="80" x2="535" y2="80" stroke="#333" stroke-width="3" marker-end="url(#arrow)"/>
+                    <text x="380" y="70" text-anchor="middle" font-size="12" fill="#333">s(t) + n(t)</text>
+                    
+                    <!-- Noise to adaptive filter -->
+                    <line x1="260" y1="220" x2="360" y2="220" stroke="#ff6b6b" stroke-width="3" marker-end="url(#arrowred)"/>
+                    
+                    <!-- Adaptive filter to summer2 -->
+                    <line x1="460" y1="220" x2="530" y2="220" stroke="#667eea" stroke-width="3"/>
+                    <line x1="530" y1="220" x2="530" y2="105" stroke="#667eea" stroke-width="3" marker-end="url(#arrowblue)"/>
+                    <text x="495" y="210" text-anchor="middle" font-size="12" fill="#667eea">ŷ(t)</text>
+                    
+                    <!-- Summer2 to output -->
+                    <line x1="585" y1="80" x2="640" y2="80" stroke="#51cf66" stroke-width="3" marker-end="url(#arrowgreen)"/>
+                    
+                    <!-- Error feedback -->
+                    <line x1="560" y1="105" x2="560" y2="270" stroke="#fab005" stroke-width="2" stroke-dasharray="5,5"/>
+                    <line x1="560" y1="270" x2="410" y2="270" stroke="#fab005" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arroworange)"/>
+                    <text x="485" y="285" text-anchor="middle" font-size="12" fill="#fab005">e(t) - feedback</text>
+                    
+                    <!-- Arrow markers -->
+                    <defs>
+                        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#333" />
+                        </marker>
+                        <marker id="arrowgreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#51cf66" />
+                        </marker>
+                        <marker id="arrowred" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#ff6b6b" />
+                        </marker>
+                        <marker id="arrowblue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#667eea" />
+                        </marker>
+                        <marker id="arroworange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#fab005" />
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="signals-section">
+                <div class="signal-label">1. Korisni signal s(t)</div>
+                <canvas id="usefulSignalCanvas" class="signal-canvas"></canvas>
+                
+                <div class="signal-label">2. Smetnja n(t) (referenca)</div>
+                <canvas id="noiseRefCanvas" class="signal-canvas"></canvas>
+                
+                <div class="signal-label">3. Signal sa smetnjom s(t) + n'(t) (ulaz)</div>
+                <canvas id="corruptedCanvas" class="signal-canvas"></canvas>
+                
+                <div class="signal-label">4. Procijenjena smetnja ŷ(t) (izlaz neurona)</div>
+                <canvas id="estimatedCanvas" class="signal-canvas"></canvas>
+                
+                <div class="signal-label">5. Greška e(t) = očišćen signal</div>
+                <canvas id="errorCanvas" class="signal-canvas"></canvas>
+            </div>
+            
+            <div class="control-panel">
+                <div class="instructions">
+                    <h4>📝 Uputstvo:</h4>
+                    <ul>
+                        <li>Odaberi tip korisnog signala</li>
+                        <li>Podesi nivo smetnje</li>
+                        <li>Pokreni <strong>Start Adaptation</strong></li>
+                        <li>Posmatraj kako neuron uči potiskivati smetnju</li>
+                    </ul>
+                </div>
+                
+                <div class="control-section">
+                    <h3>🎯 Korisni signal</h3>
+                    <button class="btn-primary" onclick="setSignalType('sine')">Sinus</button>
+                    <button class="btn-primary" onclick="setSignalType('square')">Pravougaoni</button>
+                    <button class="btn-primary" onclick="setSignalType('triangle')">Trougaoni</button>
+                    <button class="btn-primary" onclick="setSignalType('speech')">Govor (simuliran)</button>
+                </div>
+                
+                <div class="control-section">
+                    <h3>⚙️ Parametri</h3>
+                    <div class="slider-container">
+                        <label for="learningRate">Learning Rate (η):</label>
+                        <input type="range" id="learningRate" min="0.001" max="0.1" step="0.001" value="0.01" oninput="updateLearningRate()">
+                        <div class="value-display"><span id="learningRateValue">0.010</span></div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label for="noiseLevel">Jačina smetnje:</label>
+                        <input type="range" id="noiseLevel" min="0.1" max="2" step="0.1" value="0.8" oninput="updateNoiseLevel()">
+                        <div class="value-display"><span id="noiseLevelValue">0.8</span></div>
+                    </div>
+                    
+                    <div class="slider-container">
+                        <label for="filterOrder">Red filtera (broj težina):</label>
+                        <input type="range" id="filterOrder" min="5" max="50" step="5" value="20" oninput="updateFilterOrder()">
+                        <div class="value-display"><span id="filterOrderValue">20</span></div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>▶️ Kontrole</h3>
+                    <button class="btn-success" onclick="startAdaptation()" id="startBtn">▶ Start Adaptation</button>
+                    <button class="btn-danger" onclick="stopAdaptation()" id="stopBtn" style="display:none;">⏸ Stop</button>
+                    <button class="btn-primary" onclick="resetSystem()">🔄 Reset</button>
+                    
+                    <div class="status status-idle" id="status">
+                        Spremno za pokretanje
+                    </div>
+                </div>
+                
+                <div class="metric-box">
+                    <div class="metric-label">SNR poboljšanje</div>
+                    <div class="metric-value" id="snrImprovement">0.0 dB</div>
+                </div>
+                
+                <div class="metric-box">
+                    <div class="metric-label">MSE</div>
+                    <div class="metric-value" id="mseValue">0.0000</div>
+                </div>
+                
+                <div class="info-box">
+                    <p><strong>ℹ️ Kako radi:</strong></p>
+                    <p>• Neuron prima referentni šum n(t)</p>
+                    <p>• Uči modelirati stazu prostiranja</p>
+                    <p>• Izlaz ŷ(t) aproksimira n'(t)</p>
+                    <p>• Greška e(t) = s(t) + n'(t) - ŷ(t) ≈ s(t)</p>
+                    <p>• Widrow-Hoff pravilo minimizuje MSE</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Mašinsko učenje i inteligentno upravljanje</strong></p>
+            <p>Red. prof. dr Samim Konjicija, 2025.</p>
+        </div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvases = {
+            useful: document.getElementById('usefulSignalCanvas'),
+            noiseRef: document.getElementById('noiseRefCanvas'),
+            corrupted: document.getElementById('corruptedCanvas'),
+            estimated: document.getElementById('estimatedCanvas'),
+            error: document.getElementById('errorCanvas')
+        };
+        
+        const contexts = {
+            useful: canvases.useful.getContext('2d'),
+            noiseRef: canvases.noiseRef.getContext('2d'),
+            corrupted: canvases.corrupted.getContext('2d'),
+            estimated: canvases.estimated.getContext('2d'),
+            error: canvases.error.getContext('2d')
+        };
+        
+        // System parameters
+        let learningRate = 0.01;
+        let noiseLevel = 0.8;
+        let filterOrder = 20;
+        let signalType = 'sine';
+        
+        // Filter weights
+        let weights = [];
+        
+        // Signal buffers
+        let timeIndex = 0;
+        let bufferSize = 500;
+        let usefulSignal = [];
+        let noiseReference = [];
+        let noisePropagated = [];
+        let corruptedSignal = [];
+        let estimatedNoise = [];
+        let errorSignal = [];
+        let noiseBuffer = [];  // For filter input
+        
+        // Animation
+        let isRunning = false;
+        let animationInterval = null;
+        
+        // Propagation path coefficients
+        let pathCoeffs = [];
+        
+        // Initialize
+        function init() {
+            // Resize canvases
+            Object.values(canvases).forEach(canvas => {
+                canvas.width = canvas.parentElement.clientWidth - 40;
+                canvas.height = 100;
+            });
+            
+            // Initialize weights
+            resetWeights();
+            
+            // Initialize propagation path (FIR filter)
+            pathCoeffs = Array(10).fill(0).map(() => Math.random() * 0.3 - 0.15);
+            pathCoeffs[0] = 0.8;  // Main component
+            
+            // Initialize noise buffer
+            noiseBuffer = Array(filterOrder).fill(0);
+            
+            // Generate initial signals
+            generateSignals();
+            drawAllSignals();
+        }
+        
+        function resetWeights() {
+            weights = Array(filterOrder).fill(0).map(() => Math.random() * 0.01 - 0.005);
+        }
+        
+        // Signal generation
+        function generateUsefulSignal(t) {
+            const freq = 5;  // Hz
+            const phase = 2 * Math.PI * freq * t / bufferSize;
+            
+            switch(signalType) {
+                case 'sine':
+                    return Math.sin(phase);
+                case 'square':
+                    return Math.sin(phase) > 0 ? 1 : -1;
+                case 'triangle':
+                    return (2 / Math.PI) * Math.asin(Math.sin(phase));
+                case 'speech':
+                    // Simulate speech with multiple frequencies
+                    return 0.5 * Math.sin(phase) + 
+                           0.3 * Math.sin(2.3 * phase) + 
+                           0.2 * Math.sin(4.7 * phase);
+                default:
+                    return Math.sin(phase);
+            }
+        }
+        
+        function generateNoise() {
+            return (Math.random() - 0.5) * 2;
+        }
+        
+        function propagateNoise(noiseBuffer) {
+            // Apply propagation path (FIR filter)
+            let output = 0;
+            for (let i = 0; i < Math.min(pathCoeffs.length, noiseBuffer.length); i++) {
+                output += pathCoeffs[i] * noiseBuffer[i];
+            }
+            return output;
+        }
+        
+        function generateSignals() {
+            usefulSignal = [];
+            noiseReference = [];
+            noisePropagated = [];
+            corruptedSignal = [];
+            estimatedNoise = [];
+            errorSignal = [];
+            
+            let noiseTemp = Array(pathCoeffs.length).fill(0);
+            
+            for (let t = 0; t < bufferSize; t++) {
+                // Useful signal
+                const s = generateUsefulSignal(t);
+                usefulSignal.push(s);
+                
+                // Noise reference
+                const n = generateNoise();
+                noiseReference.push(n);
+                
+                // Update noise temporary buffer
+                noiseTemp.unshift(n);
+                noiseTemp.pop();
+                
+                // Propagated noise
+                const np = propagateNoise(noiseTemp);
+                noisePropagated.push(np * noiseLevel);
+                
+                // Signal sa smetnjom
+                corruptedSignal.push(s + np * noiseLevel);
+                
+                // Initialize estimated and error as zero
+                estimatedNoise.push(0);
+                errorSignal.push(s + np * noiseLevel);
+            }
+        }
+        
+        // Adaptive filtering
+        function adaptiveStep() {
+            // Generate new samples
+            const s = generateUsefulSignal(timeIndex);
+            const n = generateNoise();
+            
+            // Update noise buffer
+            noiseBuffer.unshift(n);
+            noiseBuffer.pop();
+            
+            // Propagate noise
+            const np = propagateNoise(noiseBuffer);
+            
+            // Signal sa smetnjom
+            const corrupted = s + np * noiseLevel;
+            
+            // Estimate noise using adaptive filter
+            let estimated = 0;
+            for (let i = 0; i < filterOrder; i++) {
+                estimated += weights[i] * noiseBuffer[i];
+            }
+            
+            // Error (cleaned signal)
+            const error = corrupted - estimated;
+            
+            // Update weights using LMS (Widrow-Hoff)
+            for (let i = 0; i < filterOrder; i++) {
+                weights[i] += learningRate * error * noiseBuffer[i];
+            }
+            
+            // Store signals
+            usefulSignal.push(s);
+            noiseReference.push(n);
+            noisePropagated.push(np * noiseLevel);
+            corruptedSignal.push(corrupted);
+            estimatedNoise.push(estimated);
+            errorSignal.push(error);
+            
+            // Keep buffer size constant
+            if (usefulSignal.length > bufferSize) {
+                usefulSignal.shift();
+                noiseReference.shift();
+                noisePropagated.shift();
+                corruptedSignal.shift();
+                estimatedNoise.shift();
+                errorSignal.shift();
+            }
+            
+            timeIndex++;
+            
+            // Update display
+            if (timeIndex % 5 === 0) {  // Update every 5 samples
+                drawAllSignals();
+                updateMetrics();
+            }
+        }
+        
+        // Drawing
+        function drawSignal(ctx, data, color, label) {
+            const canvas = ctx.canvas;
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = 30;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // Grid
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (height - 2 * padding) * i / 4;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+            }
+            
+            // Axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            const zeroY = height / 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, zeroY);
+            ctx.lineTo(width - padding, zeroY);
+            ctx.stroke();
+            
+            // Signal
+            if (data.length < 2) return;
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const xStep = (width - 2 * padding) / (data.length - 1);
+            const yScale = (height - 2 * padding) / 4;
+            
+            for (let i = 0; i < data.length; i++) {
+                const x = padding + i * xStep;
+                const y = zeroY - data[i] * yScale;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText('+2', padding - 5, padding + 5);
+            ctx.fillText('0', padding - 5, zeroY + 3);
+            ctx.fillText('-2', padding - 5, height - padding);
+        }
+        
+        function drawAllSignals() {
+            drawSignal(contexts.useful, usefulSignal, '#51cf66', 'Useful');
+            drawSignal(contexts.noiseRef, noiseReference, '#ff6b6b', 'Noise Ref');
+            drawSignal(contexts.corrupted, corruptedSignal, '#868e96', 'Signal sa smetnjom');
+            drawSignal(contexts.estimated, estimatedNoise, '#667eea', 'Estimated');
+            drawSignal(contexts.error, errorSignal, '#51cf66', 'Error');
+        }
+        
+        // Metrics
+        function calculateSNR(signal, noise) {
+            let signalPower = 0;
+            let noisePower = 0;
+            
+            for (let i = 0; i < signal.length; i++) {
+                signalPower += signal[i] * signal[i];
+                noisePower += noise[i] * noise[i];
+            }
+            
+            signalPower /= signal.length;
+            noisePower /= signal.length;
+            
+            if (noisePower === 0) return Infinity;
+            return 10 * Math.log10(signalPower / noisePower);
+        }
+        
+        function calculateMSE(signal1, signal2) {
+            let mse = 0;
+            const len = Math.min(signal1.length, signal2.length);
+            
+            for (let i = 0; i < len; i++) {
+                const diff = signal1[i] - signal2[i];
+                mse += diff * diff;
+            }
+            
+            return mse / len;
+        }
+        
+        function updateMetrics() {
+            // Calculate SNR improvement
+            const inputSNR = calculateSNR(usefulSignal, noisePropagated);
+            
+            // For output SNR, compare error signal to useful signal
+            const outputNoise = [];
+            for (let i = 0; i < usefulSignal.length; i++) {
+                outputNoise.push(errorSignal[i] - usefulSignal[i]);
+            }
+            const outputSNR = calculateSNR(usefulSignal, outputNoise);
+            
+            const snrImprovement = outputSNR - inputSNR;
+            document.getElementById('snrImprovement').textContent = 
+                (isFinite(snrImprovement) ? snrImprovement.toFixed(1) : '∞') + ' dB';
+            
+            // Calculate MSE
+            const mse = calculateMSE(usefulSignal, errorSignal);
+            document.getElementById('mseValue').textContent = mse.toFixed(4);
+        }
+        
+        // Control functions
+        function startAdaptation() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('status').className = 'status status-running';
+            document.getElementById('status').textContent = '🔄 Adaptacija u toku...';
+            
+            animationInterval = setInterval(adaptiveStep, 20);  // 50 Hz update
+        }
+        
+        function stopAdaptation() {
+            isRunning = false;
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('status').className = 'status status-idle';
+            document.getElementById('status').textContent = 'Pauzirano';
+        }
+        
+        function resetSystem() {
+            stopAdaptation();
+            
+            timeIndex = 0;
+            resetWeights();
+            noiseBuffer = Array(filterOrder).fill(0);
+            
+            generateSignals();
+            drawAllSignals();
+            updateMetrics();
+            
+            document.getElementById('status').className = 'status status-idle';
+            document.getElementById('status').textContent = 'Spremno za pokretanje';
+        }
+        
+        function setSignalType(type) {
+            signalType = type;
+            resetSystem();
+        }
+        
+        function updateLearningRate() {
+            learningRate = parseFloat(document.getElementById('learningRate').value);
+            document.getElementById('learningRateValue').textContent = learningRate.toFixed(3);
+        }
+        
+        function updateNoiseLevel() {
+            noiseLevel = parseFloat(document.getElementById('noiseLevel').value);
+            document.getElementById('noiseLevelValue').textContent = noiseLevel.toFixed(1);
+            if (!isRunning) {
+                generateSignals();
+                drawAllSignals();
+                updateMetrics();
+            }
+        }
+        
+        function updateFilterOrder() {
+            const wasRunning = isRunning;
+            if (wasRunning) stopAdaptation();
+            
+            filterOrder = parseInt(document.getElementById('filterOrder').value);
+            document.getElementById('filterOrderValue').textContent = filterOrder;
+            
+            resetWeights();
+            noiseBuffer = Array(filterOrder).fill(0);
+            
+            if (wasRunning) startAdaptation();
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+        window.addEventListener('resize', () => {
+            Object.values(canvases).forEach(canvas => {
+                canvas.width = canvas.parentElement.clientWidth - 40;
+            });
+            drawAllSignals();
+        });
+    </script>
+</body>
+</html>

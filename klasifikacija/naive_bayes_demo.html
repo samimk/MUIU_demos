@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naive Bayes - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .prob-card {
+            transition: all 0.3s ease;
+        }
+        .prob-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🎲 Naive Bayes Klasifikator</h1>
+                <p class="text-gray-600">Probabilistički pristup klasifikaciji baziran na Bayesovoj teoremi</p>
+            </div>
+
+            <!-- Data Input -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Podaci za treniranje</h2>
+                <textarea id="dataInput" class="w-full h-64 p-4 border-2 border-gray-300 rounded-lg text-sm font-mono">age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no</textarea>
+                <div class="flex gap-4 mt-4">
+                    <button onclick="trainModel()" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-lg">
+                        🎓 Treniraj model
+                    </button>
+                    <button onclick="resetDemo()" class="bg-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-700 shadow-lg">
+                        🔄 Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">📈 Statistika</h3>
+                    <div id="datasetStats"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">🎯 Prior Probabilnosti</h3>
+                    <div id="priorProbs"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">🔍 Klasifikuj novi primjer</h3>
+                    <div id="classifySection">
+                        <p class="text-gray-600 text-sm">Prvo trenirajte model</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conditional Probabilities -->
+            <div id="condProbContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Uslovne vjerovatnoće P(X|C)</h2>
+                <div id="condProbTables"></div>
+            </div>
+
+            <!-- Classification Result -->
+            <div id="classificationContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🎯 Rezultat klasifikacije</h2>
+                <div id="classificationResult"></div>
+            </div>
+
+            <!-- Step by Step Calculation -->
+            <div id="calculationContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🧮 Korak-po-korak izračunavanje</h2>
+                <div id="calculationSteps"></div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 Kako radi Naive Bayes?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <h3 class="font-bold text-blue-900 mb-2">1️⃣ Bayesova teorema</h3>
+                            <p class="text-sm text-blue-800 mb-2">P(C|X) = P(X|C) × P(C) / P(X)</p>
+                            <p class="text-xs text-blue-700">Vjerovatnoća klase C dato evidenciju X</p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                            <h3 class="font-bold text-green-900 mb-2">2️⃣ Naive pretpostavka</h3>
+                            <p class="text-sm text-green-800">Atributi su međusobno nezavisni!</p>
+                            <p class="text-xs text-green-700">P(X|C) = P(x₁|C) × P(x₂|C) × ... × P(xₙ|C)</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <h3 class="font-bold text-purple-900 mb-2">3️⃣ Prior vjerovatnoće</h3>
+                            <p class="text-sm text-purple-800">P(C) = broj_primjera_klase_C / ukupno_primjera</p>
+                            <p class="text-xs text-purple-700">Inicijalna vjerovatnoća svake klase</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                            <h3 class="font-bold text-orange-900 mb-2">4️⃣ Likelihood</h3>
+                            <p class="text-sm text-orange-800">P(xᵢ|C) = broj_puta(xᵢ, C) / broj_primjera(C)</p>
+                            <p class="text-xs text-orange-700">Vjerovatnoća atributa za datu klasu</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 bg-yellow-50 rounded-lg p-4 border border-yellow-300">
+                    <h3 class="font-bold text-yellow-900 mb-2">🎯 Prednosti Naive Bayes:</h3>
+                    <ul class="text-sm text-yellow-800 space-y-1">
+                        <li>✅ <strong>Brz i efikasan</strong> - jednostavno računanje</li>
+                        <li>✅ <strong>Radi dobro sa malim podacima</strong> - ne treba puno primjera</li>
+                        <li>✅ <strong>Multiclass problem</strong> - može klasifikovati više od 2 klase</li>
+                        <li>✅ <strong>Dobro za kategorijske podatke</strong> - text classification, spam detection</li>
+                    </ul>
+                </div>
+                <div class="mt-4 bg-red-50 rounded-lg p-4 border border-red-300">
+                    <h3 class="font-bold text-red-900 mb-2">⚠️ Limitacije:</h3>
+                    <ul class="text-sm text-red-800 space-y-1">
+                        <li>❌ <strong>"Naive" pretpostavka</strong> - atributi često nisu nezavisni</li>
+                        <li>❌ <strong>Zero frequency problem</strong> - ako atribut ne postoji u trening setu, P=0</li>
+                        <li>❌ <strong>Loše estimacije</strong> - vjerovatnoće nisu uvijek realne</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm mt-6">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dataset = [], attributes = [], targetAttribute = '';
+        let priorProbs = {}, conditionalProbs = {};
+        let classCounts = {};
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((h, idx) => row[h] = values[idx]);
+                    data.push(row);
+                }
+            }
+            return { headers, data };
+        }
+
+        function trainModel() {
+            const { headers, data } = parseCSV(document.getElementById('dataInput').value);
+            if (data.length === 0) { 
+                alert('Nema podataka!'); 
+                return; 
+            }
+            
+            dataset = data;
+            targetAttribute = headers[headers.length - 1];
+            attributes = headers.slice(0, -1);
+            
+            // Calculate prior probabilities
+            classCounts = {};
+            dataset.forEach(row => {
+                const cls = row[targetAttribute];
+                classCounts[cls] = (classCounts[cls] || 0) + 1;
+            });
+            
+            priorProbs = {};
+            Object.keys(classCounts).forEach(cls => {
+                priorProbs[cls] = classCounts[cls] / dataset.length;
+            });
+            
+            // Calculate conditional probabilities
+            conditionalProbs = {};
+            attributes.forEach(attr => {
+                conditionalProbs[attr] = {};
+                
+                const uniqueValues = [...new Set(dataset.map(row => row[attr]))];
+                
+                uniqueValues.forEach(value => {
+                    conditionalProbs[attr][value] = {};
+                    
+                    Object.keys(classCounts).forEach(cls => {
+                        const classData = dataset.filter(row => row[targetAttribute] === cls);
+                        const count = classData.filter(row => row[attr] === value).length;
+                        
+                        // Laplace smoothing (add-1 smoothing)
+                        conditionalProbs[attr][value][cls] = (count + 1) / (classCounts[cls] + uniqueValues.length);
+                    });
+                });
+            });
+            
+            updateStatistics();
+            updatePriorProbs();
+            updateConditionalProbTables();
+            setupClassification();
+            
+            document.getElementById('condProbContainer').style.display = 'block';
+        }
+
+        function updateStatistics() {
+            const stats = document.getElementById('datasetStats');
+            stats.innerHTML = `
+                <div class="space-y-2 text-sm">
+                    <p><strong>Ukupno instanci:</strong> ${dataset.length}</p>
+                    <p><strong>Broj atributa:</strong> ${attributes.length}</p>
+                    <p><strong>Target atribut:</strong> ${targetAttribute}</p>
+                    <div class="mt-3 pt-3 border-t">
+                        <p class="font-semibold mb-2">Distribucija klasa:</p>
+                        ${Object.entries(classCounts).map(([cls, count]) => 
+                            `<p class="text-xs">${cls}: ${count} (${(count/dataset.length*100).toFixed(1)}%)</p>`
+                        ).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updatePriorProbs() {
+            const container = document.getElementById('priorProbs');
+            const classes = Object.keys(priorProbs).sort();
+            
+            container.innerHTML = `
+                <div class="space-y-2">
+                    ${classes.map(cls => {
+                        const prob = priorProbs[cls];
+                        const percentage = (prob * 100).toFixed(1);
+                        return `
+                            <div class="bg-blue-50 rounded p-3">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-semibold text-blue-900">P(${cls})</span>
+                                    <span class="text-blue-700 font-bold">${prob.toFixed(4)}</span>
+                                </div>
+                                <div class="w-full bg-blue-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                                </div>
+                                <p class="text-xs text-blue-600 mt-1">${percentage}%</p>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function updateConditionalProbTables() {
+            const container = document.getElementById('condProbTables');
+            const classes = Object.keys(priorProbs).sort();
+            
+            let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
+            
+            attributes.forEach(attr => {
+                const values = Object.keys(conditionalProbs[attr]).sort();
+                
+                html += `
+                    <div class="border rounded-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-3">${attr}</h3>
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-2 text-left">Vrijednost</th>
+                                    ${classes.map(cls => `<th class="p-2 text-right">P(·|${cls})</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${values.map((val, idx) => `
+                                    <tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                                        <td class="p-2 font-semibold">${val}</td>
+                                        ${classes.map(cls => {
+                                            const prob = conditionalProbs[attr][val][cls];
+                                            return `<td class="p-2 text-right font-mono">${prob.toFixed(4)}</td>`;
+                                        }).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function setupClassification() {
+            const section = document.getElementById('classifySection');
+            
+            section.innerHTML = `
+                <div class="space-y-3">
+                    ${attributes.map(attr => {
+                        const values = [...new Set(dataset.map(row => row[attr]))].sort();
+                        return `
+                            <div>
+                                <label class="text-xs font-semibold">${attr}:</label>
+                                <select id="input_${attr}" class="w-full p-2 border rounded text-sm">
+                                    ${values.map(v => `<option value="${v}">${v}</option>`).join('')}
+                                </select>
+                            </div>
+                        `;
+                    }).join('')}
+                    <button onclick="classify()" class="w-full bg-purple-600 text-white px-4 py-2 rounded font-semibold hover:bg-purple-700 mt-2">
+                        🔍 Klasifikuj
+                    </button>
+                </div>
+            `;
+        }
+
+        function classify() {
+            const instance = {};
+            attributes.forEach(attr => {
+                instance[attr] = document.getElementById(`input_${attr}`).value;
+            });
+            
+            const classes = Object.keys(priorProbs);
+            const posteriors = {};
+            const calculations = {};
+            
+            // Calculate posterior for each class
+            classes.forEach(cls => {
+                let posterior = priorProbs[cls];
+                const steps = [`P(${cls}) = ${priorProbs[cls].toFixed(4)}`];
+                
+                attributes.forEach(attr => {
+                    const value = instance[attr];
+                    const likelihood = conditionalProbs[attr][value]?.[cls] || 0.0001;
+                    posterior *= likelihood;
+                    steps.push(`P(${attr}=${value}|${cls}) = ${likelihood.toFixed(4)}`);
+                });
+                
+                posteriors[cls] = posterior;
+                calculations[cls] = {
+                    prior: priorProbs[cls],
+                    posterior: posterior,
+                    steps: steps
+                };
+            });
+            
+            // Normalize posteriors
+            const sum = Object.values(posteriors).reduce((a, b) => a + b, 0);
+            Object.keys(posteriors).forEach(cls => {
+                posteriors[cls] = posteriors[cls] / sum;
+                calculations[cls].normalized = posteriors[cls];
+            });
+            
+            // Find winner
+            const winner = Object.keys(posteriors).reduce((a, b) => 
+                posteriors[a] > posteriors[b] ? a : b
+            );
+            
+            displayClassificationResult(instance, posteriors, winner);
+            displayCalculationSteps(instance, calculations, winner);
+            
+            document.getElementById('classificationContainer').style.display = 'block';
+            document.getElementById('calculationContainer').style.display = 'block';
+        }
+
+        function displayClassificationResult(instance, posteriors, winner) {
+            const container = document.getElementById('classificationResult');
+            const classes = Object.keys(posteriors).sort();
+            
+            container.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-purple-50 rounded-lg p-4 border-2 border-purple-300">
+                        <p class="font-bold text-purple-900 mb-2">📋 Instance za klasifikaciju:</p>
+                        <p class="text-sm text-purple-700">${attributes.map(attr => `${attr}=${instance[attr]}`).join(', ')}</p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <h3 class="font-bold text-gray-800">Posterior vjerovatnoće:</h3>
+                        ${classes.map(cls => {
+                            const prob = posteriors[cls];
+                            const percentage = (prob * 100).toFixed(2);
+                            const isWinner = cls === winner;
+                            return `
+                                <div class="bg-gray-50 rounded-lg p-4 ${isWinner ? 'border-2 border-green-500' : 'border border-gray-300'}">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="font-semibold ${isWinner ? 'text-green-900' : 'text-gray-700'}">
+                                            P(${cls}|X) ${isWinner ? '🏆' : ''}
+                                        </span>
+                                        <span class="text-lg font-bold ${isWinner ? 'text-green-700' : 'text-gray-600'}">
+                                            ${prob.toFixed(6)}
+                                        </span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-4">
+                                        <div class="bg-gradient-to-r ${isWinner ? 'from-green-500 to-green-600' : 'from-gray-400 to-gray-500'} h-4 rounded-full flex items-center justify-center text-white text-xs font-bold" 
+                                             style="width: ${percentage}%">
+                                            ${percentage}%
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <div class="bg-green-100 rounded-lg p-6 border-2 border-green-500">
+                        <p class="font-bold text-green-900 text-xl">PREDIKCIJA: ${winner.toUpperCase()} ✅</p>
+                        <p class="text-sm text-green-700 mt-2">Vjerovatnoća: ${(posteriors[winner] * 100).toFixed(2)}%</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayCalculationSteps(instance, calculations, winner) {
+            const container = document.getElementById('calculationSteps');
+            const classes = Object.keys(calculations).sort();
+            
+            let html = '<div class="space-y-6">';
+            
+            classes.forEach(cls => {
+                const calc = calculations[cls];
+                const isWinner = cls === winner;
+                
+                html += `
+                    <div class="border-2 ${isWinner ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50'} rounded-lg p-4">
+                        <h3 class="font-bold text-lg mb-3 ${isWinner ? 'text-green-900' : 'text-gray-800'}">
+                            Klasa: ${cls} ${isWinner ? '🏆' : ''}
+                        </h3>
+                        
+                        <div class="space-y-2 text-sm font-mono">
+                            <p class="font-bold text-blue-900">Korak 1: Prior vjerovatnoća</p>
+                            <p class="ml-4">${calc.steps[0]}</p>
+                            
+                            <p class="font-bold text-purple-900 mt-3">Korak 2: Likelihood za svaki atribut</p>
+                            ${calc.steps.slice(1).map(step => `<p class="ml-4">${step}</p>`).join('')}
+                            
+                            <p class="font-bold text-orange-900 mt-3">Korak 3: Množi sve vjerovatnoće</p>
+                            <p class="ml-4">P(${cls}|X) ∝ ${calc.steps[0].split('=')[1].trim()} × ${calc.steps.slice(1).map(s => s.split('=')[1].trim()).join(' × ')}</p>
+                            <p class="ml-4 font-bold">= ${calc.posterior.toExponential(4)}</p>
+                            
+                            <p class="font-bold text-green-900 mt-3">Korak 4: Normalizacija</p>
+                            <p class="ml-4">P(${cls}|X) = ${calc.normalized.toFixed(6)} (${(calc.normalized * 100).toFixed(2)}%)</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function resetDemo() {
+            document.getElementById('dataInput').value = `age,income,student,credit_rating,buys_computer
+<=30,high,no,fair,no
+<=30,high,no,excellent,no
+31...40,high,no,fair,yes
+>40,medium,no,fair,yes
+>40,low,yes,fair,yes
+>40,low,yes,excellent,no
+31...40,low,yes,excellent,yes
+<=30,medium,no,fair,no
+<=30,low,yes,fair,yes
+>40,medium,yes,fair,yes
+<=30,medium,yes,excellent,yes
+31...40,medium,no,excellent,yes
+31...40,high,yes,fair,yes
+>40,medium,no,excellent,no`;
+            
+            document.getElementById('condProbContainer').style.display = 'none';
+            document.getElementById('classificationContainer').style.display = 'none';
+            document.getElementById('calculationContainer').style.display = 'none';
+            document.getElementById('classifySection').innerHTML = '<p class="text-gray-600 text-sm">Prvo trenirajte model</p>';
+            
+            dataset = [];
+            attributes = [];
+            priorProbs = {};
+            conditionalProbs = {};
+            classCounts = {};
+        }
+    </script>
+</body>
+</html>

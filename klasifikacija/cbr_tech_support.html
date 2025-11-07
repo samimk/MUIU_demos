@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBR - Tehnička podrška Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .phase-card {
+            transition: all 0.3s ease;
+        }
+        .phase-card.active {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .case-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .case-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .similarity-bar {
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🔧 Case-Based Reasoning - Tehnička podrška</h1>
+                <p class="text-gray-600">Sistem za rješavanje problema baziran na prethodnim slučajevima</p>
+            </div>
+
+            <!-- CBR Cycle Visualization -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🔄 CBR Ciklus (4R)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div id="phase1" class="phase-card bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg p-4 border-2 border-blue-400">
+                        <div class="text-3xl text-center mb-2">🔍</div>
+                        <h3 class="font-bold text-blue-900 text-center">1. RETRIEVE</h3>
+                        <p class="text-sm text-blue-800 text-center mt-2">Pronađi slične slučajeve</p>
+                    </div>
+                    <div id="phase2" class="phase-card bg-gray-100 rounded-lg p-4 border-2 border-gray-300">
+                        <div class="text-3xl text-center mb-2">♻️</div>
+                        <h3 class="font-bold text-gray-700 text-center">2. REUSE</h3>
+                        <p class="text-sm text-gray-600 text-center mt-2">Adaptiraj rješenje</p>
+                    </div>
+                    <div id="phase3" class="phase-card bg-gray-100 rounded-lg p-4 border-2 border-gray-300">
+                        <div class="text-3xl text-center mb-2">✏️</div>
+                        <h3 class="font-bold text-gray-700 text-center">3. REVISE</h3>
+                        <p class="text-sm text-gray-600 text-center mt-2">Testiraj i prilagodi</p>
+                    </div>
+                    <div id="phase4" class="phase-card bg-gray-100 rounded-lg p-4 border-2 border-gray-300">
+                        <div class="text-3xl text-center mb-2">💾</div>
+                        <h3 class="font-bold text-gray-700 text-center">4. RETAIN</h3>
+                        <p class="text-sm text-gray-600 text-center mt-2">Sačuvaj novi slučaj</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Problem Input -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🆕 Novi problem (Query Case)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Uređaj:</label>
+                        <select id="deviceType" class="w-full p-3 border-2 rounded-lg">
+                            <option value="laptop">Laptop</option>
+                            <option value="desktop">Desktop računar</option>
+                            <option value="printer">Štampač</option>
+                            <option value="router">Router</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Simptom:</label>
+                        <select id="symptom" class="w-full p-3 border-2 rounded-lg">
+                            <option value="ne_pali_se">Ne pali se</option>
+                            <option value="spor">Jako spor</option>
+                            <option value="pregrijava">Pregrijava se</option>
+                            <option value="nema_interneta">Nema internet konekcije</option>
+                            <option value="plavi_ekran">Plavi ekran (BSOD)</option>
+                            <option value="ne_stampa">Ne štampa</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Hitnost (1-10):</label>
+                        <input type="range" id="urgency" min="1" max="10" value="5" class="w-full">
+                        <div class="text-center font-bold text-lg" id="urgencyValue">5</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Starost uređaja (godine):</label>
+                        <input type="number" id="deviceAge" value="2" min="0" max="10" class="w-full p-3 border-2 rounded-lg">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold mb-2">Metrika sličnosti:</label>
+                        <select id="similarityMetric" class="w-full p-3 border-2 rounded-lg">
+                            <option value="euclidean">Euclidean distance</option>
+                            <option value="manhattan">Manhattan distance</option>
+                            <option value="weighted">Weighted (prilagođeno)</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold mb-2">Broj sličnih slučajeva (k):</label>
+                        <input type="range" id="kValue" min="1" max="5" value="3" class="w-full">
+                        <div class="text-center font-bold text-lg" id="kValueDisplay">3</div>
+                    </div>
+                </div>
+                <button onclick="findSimilarCases()" class="w-full mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-lg">
+                    🔍 Pronađi slične slučajeve (RETRIEVE)
+                </button>
+            </div>
+
+            <!-- Similar Cases Results -->
+            <div id="resultsContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Pronađeni slični slučajevi</h2>
+                <div id="similarCases" class="space-y-4"></div>
+                <button onclick="reuseSolution()" class="w-full mt-4 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 shadow-lg">
+                    ♻️ Adaptiraj rješenje (REUSE)
+                </button>
+            </div>
+
+            <!-- Reused Solution -->
+            <div id="solutionContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">💡 Predloženo rješenje</h2>
+                <div id="proposedSolution" class="bg-green-50 rounded-lg p-6 border-2 border-green-300"></div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <button onclick="testSolution(true)" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 shadow-lg">
+                        ✅ Rješenje uspješno (REVISE)
+                    </button>
+                    <button onclick="testSolution(false)" class="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 shadow-lg">
+                        ❌ Rješenje neuspješno
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feedback and Retain -->
+            <div id="feedbackContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📝 Feedback i čuvanje</h2>
+                <div id="feedbackContent"></div>
+            </div>
+
+            <!-- Case Base -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">💾 Baza slučajeva (Case Base)</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-left">ID</th>
+                                <th class="p-3 text-left">Uređaj</th>
+                                <th class="p-3 text-left">Simptom</th>
+                                <th class="p-3 text-left">Hitnost</th>
+                                <th class="p-3 text-left">Starost</th>
+                                <th class="p-3 text-left">Rješenje</th>
+                                <th class="p-3 text-left">Uspješnost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="caseBaseTable"></tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    <p><strong>Trenutno slučajeva u bazi:</strong> <span id="caseCount" class="font-bold text-blue-600"></span></p>
+                </div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 Kako radi Case-Based Reasoning?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <h3 class="font-bold text-blue-900 mb-2">1️⃣ RETRIEVE (Pronađi)</h3>
+                            <p class="text-sm text-blue-800">Sistem traži slučajeve iz baze koji su najsličniji trenutnom problemu. Koristi metrike kao što su Euclidean ili Manhattan distance.</p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                            <h3 class="font-bold text-green-900 mb-2">2️⃣ REUSE (Ponovo iskoristi)</h3>
+                            <p class="text-sm text-green-800">Uzima rješenje iz pronađenih sličnih slučajeva i adaptira ga za trenutni problem. Može kombinovati više rješenja.</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                            <h3 class="font-bold text-orange-900 mb-2">3️⃣ REVISE (Reviduj)</h3>
+                            <p class="text-sm text-orange-800">Testiraj predloženo rješenje. Ako ne radi, prilagodi ga ili pokušaj sa drugim pristupom.</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                            <h3 class="font-bold text-purple-900 mb-2">4️⃣ RETAIN (Zadrži)</h3>
+                            <p class="text-sm text-purple-800">Sačuvaj novi slučaj (problem + rješenje) u bazu za buduće korištenje. Sistem uči iz iskustva!</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 bg-yellow-50 rounded-lg p-4 border border-yellow-300">
+                    <h3 class="font-bold text-yellow-900 mb-2">🎯 Prednosti CBR-a:</h3>
+                    <ul class="text-sm text-yellow-800 space-y-1">
+                        <li>✅ <strong>Ne zahtijeva eksplicitne pravila</strong> - uči iz iskustva</li>
+                        <li>✅ <strong>Brzo rješavanje</strong> - koristi postojeća rješenja</li>
+                        <li>✅ <strong>Kontinuirano učenje</strong> - baza raste sa svakim novim slučajem</li>
+                        <li>✅ <strong>Praktično</strong> - posebno korisno kada pravila nisu jasna</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm mt-6">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Case Base - prethodni slučajevi
+        let caseBase = [
+            {
+                id: 1,
+                device: 'laptop',
+                symptom: 'ne_pali_se',
+                urgency: 9,
+                age: 3,
+                solution: 'Provjeri napajanje i bateriju. Ako ne pomaže, mogući problem sa matičnom pločom.',
+                success: 0.9
+            },
+            {
+                id: 2,
+                device: 'laptop',
+                symptom: 'spor',
+                urgency: 5,
+                age: 4,
+                solution: 'Instaliraj SSD umjesto HDD-a. Dodaj još RAM memorije (minimum 8GB).',
+                success: 0.95
+            },
+            {
+                id: 3,
+                device: 'laptop',
+                symptom: 'pregrijava',
+                urgency: 7,
+                age: 5,
+                solution: 'Očisti ventilatore i zamijeni termalnu pastu. Provjetri vent otvore.',
+                success: 0.85
+            },
+            {
+                id: 4,
+                device: 'desktop',
+                symptom: 'ne_pali_se',
+                urgency: 8,
+                age: 2,
+                solution: 'Provjeri PSU (napajanje). Resetuj CMOS bateriju. Testuj sa drugim PSU-om.',
+                success: 0.88
+            },
+            {
+                id: 5,
+                device: 'desktop',
+                symptom: 'plavi_ekran',
+                urgency: 8,
+                age: 1,
+                solution: 'Testiraj RAM memoriju sa Memtest86. Update-uj drajvere. Skeniraj za malware.',
+                success: 0.82
+            },
+            {
+                id: 6,
+                device: 'printer',
+                symptom: 'ne_stampa',
+                urgency: 6,
+                age: 3,
+                solution: 'Provjeri queue. Reinstaliraj printer drajver. Očisti print head.',
+                success: 0.92
+            },
+            {
+                id: 7,
+                device: 'router',
+                symptom: 'nema_interneta',
+                urgency: 9,
+                age: 2,
+                solution: 'Resetuj router (30sec). Provjeri kablove. Kontaktiraj ISP provajdera.',
+                success: 0.87
+            },
+            {
+                id: 8,
+                device: 'laptop',
+                symptom: 'nema_interneta',
+                urgency: 7,
+                age: 1,
+                solution: 'Provjeri WiFi adapter. Update-uj WiFi drajver. Zaboravi i ponovo spoji mrežu.',
+                success: 0.91
+            },
+            {
+                id: 9,
+                device: 'desktop',
+                symptom: 'spor',
+                urgency: 4,
+                age: 6,
+                solution: 'Defragmentuj hard disk. Ukloni startup programe. Instaliraj fresh Windows.',
+                success: 0.78
+            },
+            {
+                id: 10,
+                device: 'laptop',
+                symptom: 'plavi_ekran',
+                urgency: 9,
+                age: 2,
+                solution: 'Bootuj u Safe Mode. Onemogući problematične drajvere. Uradi System Restore.',
+                success: 0.84
+            }
+        ];
+
+        let currentQuery = null;
+        let similarCasesFound = [];
+        let proposedSolutionText = '';
+
+        // Initialize
+        updateCaseBaseTable();
+        
+        // Event listeners
+        document.getElementById('urgency').addEventListener('input', function() {
+            document.getElementById('urgencyValue').textContent = this.value;
+        });
+        
+        document.getElementById('kValue').addEventListener('input', function() {
+            document.getElementById('kValueDisplay').textContent = this.value;
+        });
+
+        function updateCaseBaseTable() {
+            const tbody = document.getElementById('caseBaseTable');
+            tbody.innerHTML = caseBase.map(c => `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-3">${c.id}</td>
+                    <td class="p-3">${translateDevice(c.device)}</td>
+                    <td class="p-3">${translateSymptom(c.symptom)}</td>
+                    <td class="p-3">${c.urgency}/10</td>
+                    <td class="p-3">${c.age} god</td>
+                    <td class="p-3 text-xs">${c.solution.substring(0, 40)}...</td>
+                    <td class="p-3">${(c.success * 100).toFixed(0)}%</td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('caseCount').textContent = caseBase.length;
+        }
+
+        function translateDevice(device) {
+            const map = {
+                'laptop': 'Laptop',
+                'desktop': 'Desktop',
+                'printer': 'Štampač',
+                'router': 'Router'
+            };
+            return map[device] || device;
+        }
+
+        function translateSymptom(symptom) {
+            const map = {
+                'ne_pali_se': 'Ne pali se',
+                'spor': 'Jako spor',
+                'pregrijava': 'Pregrijava se',
+                'nema_interneta': 'Nema interneta',
+                'plavi_ekran': 'Plavi ekran',
+                'ne_stampa': 'Ne štampa'
+            };
+            return map[symptom] || symptom;
+        }
+
+        function calculateSimilarity(case1, case2, metric) {
+            // Normalizuj atribute
+            const deviceMatch = case1.device === case2.device ? 1 : 0;
+            const symptomMatch = case1.symptom === case2.symptom ? 1 : 0;
+            const urgencyDiff = Math.abs(case1.urgency - case2.urgency) / 10;
+            const ageDiff = Math.abs(case1.age - case2.age) / 10;
+            
+            if (metric === 'euclidean') {
+                const dist = Math.sqrt(
+                    Math.pow(1 - deviceMatch, 2) +
+                    Math.pow(1 - symptomMatch, 2) +
+                    Math.pow(urgencyDiff, 2) +
+                    Math.pow(ageDiff, 2)
+                );
+                return 1 / (1 + dist); // Konvertuj u sličnost (0-1)
+            } else if (metric === 'manhattan') {
+                const dist = (1 - deviceMatch) + (1 - symptomMatch) + urgencyDiff + ageDiff;
+                return 1 / (1 + dist);
+            } else if (metric === 'weighted') {
+                // Prilagođene težine
+                const similarity = 
+                    deviceMatch * 0.3 +
+                    symptomMatch * 0.4 +
+                    (1 - urgencyDiff) * 0.15 +
+                    (1 - ageDiff) * 0.15;
+                return similarity;
+            }
+            return 0;
+        }
+
+        function findSimilarCases() {
+            // Phase 1 active
+            activatePhase(1);
+            
+            // Kreiraj query case
+            currentQuery = {
+                device: document.getElementById('deviceType').value,
+                symptom: document.getElementById('symptom').value,
+                urgency: parseInt(document.getElementById('urgency').value),
+                age: parseInt(document.getElementById('deviceAge').value)
+            };
+            
+            const metric = document.getElementById('similarityMetric').value;
+            const k = parseInt(document.getElementById('kValue').value);
+            
+            // Računaj sličnosti
+            const similarities = caseBase.map(c => ({
+                case: c,
+                similarity: calculateSimilarity(currentQuery, c, metric)
+            }));
+            
+            // Sortiraj i uzmi top k
+            similarities.sort((a, b) => b.similarity - a.similarity);
+            similarCasesFound = similarities.slice(0, k);
+            
+            // Prikaži rezultate
+            displaySimilarCases();
+            document.getElementById('resultsContainer').style.display = 'block';
+            
+            // Scroll to results
+            document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function displaySimilarCases() {
+            const container = document.getElementById('similarCases');
+            container.innerHTML = similarCasesFound.map((item, index) => {
+                const c = item.case;
+                const similarity = (item.similarity * 100).toFixed(1);
+                return `
+                    <div class="case-card bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-300">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">Slučaj #${c.id}</h3>
+                                <p class="text-sm text-gray-600">${translateDevice(c.device)} - ${translateSymptom(c.symptom)}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-blue-600">${similarity}%</div>
+                                <div class="text-xs text-gray-600">sličnost</div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded p-3 mb-2">
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div><strong>Hitnost:</strong> ${c.urgency}/10</div>
+                                <div><strong>Starost:</strong> ${c.age} god</div>
+                            </div>
+                        </div>
+                        <div class="bg-green-50 rounded p-3 border border-green-200">
+                            <p class="text-sm"><strong>Rješenje:</strong> ${c.solution}</p>
+                            <p class="text-xs text-gray-600 mt-2">Uspješnost: ${(c.success * 100).toFixed(0)}%</p>
+                        </div>
+                        <div class="mt-3">
+                            <div class="text-xs text-gray-600 mb-1">Sličnost:</div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="similarity-bar bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full" style="width: ${similarity}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function reuseSolution() {
+            activatePhase(2);
+            
+            // Adaptiraj rješenje na osnovu najsličnijih slučajeva
+            if (similarCasesFound.length === 0) return;
+            
+            // Weighted kombinacija rješenja
+            const topCase = similarCasesFound[0].case;
+            proposedSolutionText = topCase.solution;
+            
+            // Prilagođavanje na osnovu konteksta
+            let adaptedSolution = `<div class="space-y-4">`;
+            adaptedSolution += `<div class="bg-blue-50 rounded p-3 border border-blue-200">
+                <p class="font-bold text-blue-900 mb-2">📋 Osnovni pristup (iz najsličnijeg slučaja):</p>
+                <p class="text-sm">${topCase.solution}</p>
+            </div>`;
+            
+            // Dodatne prilagodbe
+            adaptedSolution += `<div class="bg-purple-50 rounded p-3 border border-purple-200">
+                <p class="font-bold text-purple-900 mb-2">🔧 Prilagođeno za vaš slučaj:</p>
+                <ul class="text-sm space-y-1">`;
+            
+            if (currentQuery.urgency >= 8) {
+                adaptedSolution += `<li>⚡ <strong>Visoka hitnost</strong> - prioritet na brzom rješenju</li>`;
+            }
+            
+            if (currentQuery.age >= 5) {
+                adaptedSolution += `<li>⏰ <strong>Stari uređaj</strong> - razmotri zamjenu/upgrade</li>`;
+            }
+            
+            adaptedSolution += `<li>📊 <strong>Pouzdanost rješenja:</strong> ${(topCase.success * 100).toFixed(0)}%</li>`;
+            adaptedSolution += `</ul></div>`;
+            
+            // Kombinacija više rješenja ako je potrebno
+            if (similarCasesFound.length > 1) {
+                adaptedSolution += `<div class="bg-yellow-50 rounded p-3 border border-yellow-200">
+                    <p class="font-bold text-yellow-900 mb-2">💡 Alternativni pristupi:</p>
+                    <ul class="text-sm space-y-1">`;
+                
+                for (let i = 1; i < Math.min(3, similarCasesFound.length); i++) {
+                    adaptedSolution += `<li>• ${similarCasesFound[i].case.solution}</li>`;
+                }
+                adaptedSolution += `</ul></div>`;
+            }
+            
+            adaptedSolution += `</div>`;
+            
+            document.getElementById('proposedSolution').innerHTML = adaptedSolution;
+            document.getElementById('solutionContainer').style.display = 'block';
+            document.getElementById('solutionContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function testSolution(success) {
+            activatePhase(3);
+            
+            const feedbackContent = document.getElementById('feedbackContent');
+            
+            if (success) {
+                feedbackContent.innerHTML = `
+                    <div class="bg-green-100 rounded-lg p-6 border-2 border-green-400 mb-4">
+                        <h3 class="font-bold text-green-900 text-lg mb-2">✅ Rješenje uspješno!</h3>
+                        <p class="text-green-800">Problem je riješen. Novi slučaj će biti sačuvan u bazi.</p>
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <p class="font-bold text-blue-900 mb-2">📝 Dodatni komentari (opciono):</p>
+                        <textarea id="additionalNotes" class="w-full p-3 border-2 rounded-lg" rows="3" 
+                            placeholder="Napomene, specifičnosti rješenja..."></textarea>
+                        <button onclick="retainCase(true)" class="w-full mt-3 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700">
+                            💾 Sačuvaj slučaj (RETAIN)
+                        </button>
+                    </div>
+                `;
+            } else {
+                feedbackContent.innerHTML = `
+                    <div class="bg-red-100 rounded-lg p-6 border-2 border-red-400 mb-4">
+                        <h3 class="font-bold text-red-900 text-lg mb-2">❌ Rješenje nije uspjelo</h3>
+                        <p class="text-red-800">Problem nije riješen. Prilagodite rješenje ili pokušajte drugi pristup.</p>
+                    </div>
+                    <div class="bg-orange-50 rounded-lg p-4">
+                        <p class="font-bold text-orange-900 mb-2">🔧 Šta je pokušano i zašto nije uspjelo?</p>
+                        <textarea id="failureReason" class="w-full p-3 border-2 rounded-lg mb-3" rows="2" 
+                            placeholder="Opis pokušaja..."></textarea>
+                        <p class="font-bold text-orange-900 mb-2">💡 Koje rješenje je na kraju uspjelo?</p>
+                        <textarea id="actualSolution" class="w-full p-3 border-2 rounded-lg" rows="3" 
+                            placeholder="Opišite rješenje koje je funkcionisalo..."></textarea>
+                        <button onclick="retainCase(false)" class="w-full mt-3 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700">
+                            💾 Sačuvaj izmijenjeni slučaj (RETAIN)
+                        </button>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('feedbackContainer').style.display = 'block';
+            document.getElementById('feedbackContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function retainCase(wasSuccessful) {
+            activatePhase(4);
+            
+            let newSolution, newSuccess;
+            
+            if (wasSuccessful) {
+                const additionalNotes = document.getElementById('additionalNotes').value;
+                newSolution = proposedSolutionText;
+                if (additionalNotes) {
+                    newSolution += ` Napomena: ${additionalNotes}`;
+                }
+                newSuccess = 0.9;
+            } else {
+                const failureReason = document.getElementById('failureReason').value;
+                newSolution = document.getElementById('actualSolution').value;
+                if (!newSolution) {
+                    alert('Molimo unesite rješenje koje je uspjelo!');
+                    return;
+                }
+                newSuccess = 0.85;
+            }
+            
+            // Dodaj novi slučaj u bazu
+            const newCase = {
+                id: caseBase.length + 1,
+                device: currentQuery.device,
+                symptom: currentQuery.symptom,
+                urgency: currentQuery.urgency,
+                age: currentQuery.age,
+                solution: newSolution,
+                success: newSuccess
+            };
+            
+            caseBase.push(newCase);
+            updateCaseBaseTable();
+            
+            // Prikaži poruku o uspjehu
+            const feedbackContent = document.getElementById('feedbackContent');
+            feedbackContent.innerHTML += `
+                <div class="bg-purple-100 rounded-lg p-6 border-2 border-purple-400 mt-4">
+                    <h3 class="font-bold text-purple-900 text-lg mb-2">🎉 Slučaj uspješno sačuvan!</h3>
+                    <p class="text-purple-800 mb-3">Novi slučaj #${newCase.id} je dodat u bazu. Sistem je naučio iz ovog iskustva!</p>
+                    <div class="bg-white rounded p-3">
+                        <p class="text-sm"><strong>Uređaj:</strong> ${translateDevice(newCase.device)}</p>
+                        <p class="text-sm"><strong>Simptom:</strong> ${translateSymptom(newCase.symptom)}</p>
+                        <p class="text-sm"><strong>Rješenje:</strong> ${newCase.solution}</p>
+                    </div>
+                    <button onclick="resetDemo()" class="w-full mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700">
+                        🔄 Novi problem
+                    </button>
+                </div>
+            `;
+        }
+
+        function activatePhase(phaseNumber) {
+            // Deaktiviraj sve faze
+            for (let i = 1; i <= 4; i++) {
+                const phase = document.getElementById(`phase${i}`);
+                phase.classList.remove('active');
+                
+                if (i < phaseNumber) {
+                    // Završene faze - zeleno
+                    phase.className = 'phase-card bg-gradient-to-br from-green-100 to-green-200 rounded-lg p-4 border-2 border-green-400';
+                } else if (i === phaseNumber) {
+                    // Aktivna faza
+                    phase.className = 'phase-card active bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg p-4 border-2 border-blue-400';
+                } else {
+                    // Neaktivne faze
+                    phase.className = 'phase-card bg-gray-100 rounded-lg p-4 border-2 border-gray-300';
+                }
+            }
+        }
+
+        function resetDemo() {
+            // Reset svih sekcija
+            document.getElementById('resultsContainer').style.display = 'none';
+            document.getElementById('solutionContainer').style.display = 'none';
+            document.getElementById('feedbackContainer').style.display = 'none';
+            
+            // Reset faza
+            activatePhase(1);
+            
+            // Scroll na vrh
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // Reset vrednosti
+            currentQuery = null;
+            similarCasesFound = [];
+            proposedSolutionText = '';
+        }
+    </script>
+</body>
+</html>
+                

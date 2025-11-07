@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROC Kriva</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .slide {
+            background: white;
+            width: 1200px;
+            height: 675px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+        }
+        .formula {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-5xl font-bold mb-3" style="color: #667eea;">ROC Kriva</h1>
+            <h2 class="text-2xl text-gray-600">Receiver Operating Characteristic Curve</h2>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="flex-1 grid grid-cols-2 gap-8">
+            <!-- Left Column - Graph -->
+            <div class="flex flex-col">
+                <div class="bg-gray-50 rounded-xl p-4 flex-1 flex flex-col">
+                    <canvas id="rocChart"></canvas>
+                </div>
+                <div class="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-300">
+                    <div class="font-bold text-purple-900 mb-2">📊 AUC (Area Under Curve):</div>
+                    <div class="text-sm text-purple-800 space-y-1">
+                        <div>• <strong>AUC = 1.0</strong> → Savršen klasifikator</div>
+                        <div>• <strong>AUC = 0.9-1.0</strong> → Odličan</div>
+                        <div>• <strong>AUC = 0.8-0.9</strong> → Dobar</div>
+                        <div>• <strong>AUC = 0.7-0.8</strong> → Prihvatljiv</div>
+                        <div>• <strong>AUC = 0.5</strong> → Nasumično pogađanje</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Explanation -->
+            <div class="flex flex-col justify-between">
+                <div class="space-y-4">
+                    <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                        <h3 class="font-bold text-blue-900 mb-2 text-lg">Šta je ROC kriva?</h3>
+                        <p class="text-sm text-blue-800">
+                            Grafički prikaz performansi binarnog klasifikatora pri različitim <strong>thresholdima</strong> odluke. 
+                            Pokazuje trade-off između True Positive Rate (Recall) i False Positive Rate (Fallout).
+                        </p>
+                    </div>
+
+                    <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                        <h3 class="font-bold text-green-900 mb-2">Ose grafa:</h3>
+                        <div class="space-y-2 text-sm text-green-800">
+                            <div class="formula">
+                                <strong>Y-osa:</strong> TPR = TP/(TP+FN) = Recall = Sensitivity
+                            </div>
+                            <div class="formula">
+                                <strong>X-osa:</strong> FPR = FP/(FP+TN) = Fallout = 1 - Specificity
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                        <h3 class="font-bold text-orange-900 mb-2">Kako interpretirati:</h3>
+                        <div class="text-sm text-orange-800 space-y-1">
+                            <div>🎯 <strong>Idealna tačka:</strong> Gornji lijevi ugao (0,1)</div>
+                            <div>📈 <strong>Što bliže lijevom gornjem uglu, to bolje</strong></div>
+                            <div>📏 <strong>Dijagonala:</strong> Predstavlja nasumično pogađanje</div>
+                            <div>💡 <strong>Threshold:</strong> Svaka tačka na krivoj = različit threshold</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-50 rounded-lg p-4 border-l-4 border-yellow-500">
+                        <h3 class="font-bold text-yellow-900 mb-2">Primjena:</h3>
+                        <div class="text-sm text-yellow-800 space-y-1">
+                            <div>✓ Poređenje različitih modela</div>
+                            <div>✓ Odabir optimalnog thresholda za specifični problem</div>
+                            <div>✓ Evaluacija na neuravnoteženim podacima</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-6 text-center text-gray-500 text-sm">
+            Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija
+        </div>
+    </div>
+
+    <script>
+        // Create ROC curve chart
+        const ctx = document.getElementById('rocChart');
+        
+        // Generate sample ROC curves
+        const perfectClassifier = [];
+        const goodClassifier = [];
+        const randomClassifier = [];
+        
+        // Perfect classifier (goes straight up then right)
+        for (let i = 0; i <= 100; i++) {
+            const x = i / 100;
+            if (x <= 0.0) {
+                perfectClassifier.push({x: x, y: 1.0});
+            } else {
+                perfectClassifier.push({x: x, y: 1.0});
+            }
+        }
+        perfectClassifier[0] = {x: 0, y: 0};
+        perfectClassifier[1] = {x: 0, y: 1};
+        
+        // Good classifier (realistic S-curve)
+        for (let i = 0; i <= 100; i++) {
+            const x = i / 100;
+            // Sigmoid-like curve for good classifier
+            const y = 1 / (1 + Math.exp(-8 * (x - 0.3)));
+            goodClassifier.push({x: x, y: Math.min(y + 0.1, 1.0)});
+        }
+        
+        // Random classifier (diagonal line)
+        for (let i = 0; i <= 100; i++) {
+            const x = i / 100;
+            randomClassifier.push({x: x, y: x});
+        }
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Savršen klasifikator (AUC=1.0)',
+                        data: perfectClassifier,
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Dobar klasifikator (AUC=0.85)',
+                        data: goodClassifier,
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Nasumično (AUC=0.5)',
+                        data: randomClassifier,
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [10, 5],
+                        fill: false,
+                        tension: 0,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 11 },
+                            boxWidth: 20,
+                            padding: 10
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'ROC Kriva - Primjeri',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: 0,
+                        max: 1,
+                        title: {
+                            display: true,
+                            text: 'False Positive Rate (FPR) - Fallout',
+                            font: { size: 12, weight: 'bold' }
+                        },
+                        ticks: {
+                            stepSize: 0.2,
+                            font: { size: 11 }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        min: 0,
+                        max: 1,
+                        title: {
+                            display: true,
+                            text: 'True Positive Rate (TPR) - Recall',
+                            font: { size: 12, weight: 'bold' }
+                        },
+                        ticks: {
+                            stepSize: 0.2,
+                            font: { size: 11 }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+    </script>
+</body>
+</html>

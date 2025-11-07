@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>k-means i k-medoids Klasteriranje - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .cluster-card {
+            transition: all 0.3s ease;
+        }
+        .cluster-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🎯 k-means i k-medoids Klasteriranje</h1>
+                <p class="text-gray-600">Metode analize klastera - unsupervised learning</p>
+            </div>
+
+            <!-- Data Input -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">💾 Podaci za klasteriranje (CSV format)</h2>
+                <p class="text-sm text-gray-600 mb-3">
+                    <strong>Format:</strong> Prvi red je zaglavlje. Sve kolone su numerički atributi (nema ciljne varijable).
+                </p>
+                <textarea id="dataInput" class="w-full h-48 p-4 border-2 border-gray-300 rounded-lg text-sm font-mono"
+                    placeholder="x,y">x,y
+2.5,3.2
+2.8,3.5
+2.2,3.0
+3.0,3.8
+2.6,3.3
+7.5,7.8
+8.0,8.2
+7.2,7.5
+8.5,8.0
+7.8,7.6
+5.0,5.5
+5.5,5.8
+4.8,5.2
+5.2,5.6
+5.3,5.4
+1.0,8.5
+1.5,8.0
+1.2,8.8
+0.8,8.2
+1.3,8.6</textarea>
+                <button onclick="loadData()" class="mt-3 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-lg">
+                    🔥 Učitaj podatke
+                </button>
+                <div id="dataInfo" class="mt-3 text-sm text-gray-600"></div>
+            </div>
+
+            <!-- Algorithm Settings -->
+            <div id="settingsSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">⚙️ Postavke algoritma</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Metoda klasteriranja:</label>
+                        <select id="algorithmSelect" class="w-full p-3 border-2 rounded-lg">
+                            <option value="kmeans">k-means</option>
+                            <option value="kmedoids">k-medoids</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Broj klastera (k):</label>
+                        <input type="range" id="kValue" min="2" max="8" value="3" class="w-full">
+                        <div class="text-center font-bold text-2xl text-indigo-600" id="kDisplay">3</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Metrika udaljenosti:</label>
+                        <select id="distanceMetric" class="w-full p-3 border-2 rounded-lg">
+                            <option value="euclidean">Euclidean</option>
+                            <option value="manhattan">Manhattan</option>
+                            <option value="minkowski">Minkowski (p=3)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Max iteracija:</label>
+                        <input type="number" id="maxIterations" value="100" min="10" max="500" class="w-full p-3 border-2 rounded-lg">
+                    </div>
+                </div>
+                <button onclick="runClustering()" class="mt-6 w-full bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 shadow-lg text-lg">
+                    🚀 Pokreni klasteriranje
+                </button>
+            </div>
+
+            <!-- Results Summary -->
+            <div id="resultsSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Rezultati</h2>
+                <div id="resultsSummary" class="grid grid-cols-1 md:grid-cols-4 gap-4"></div>
+            </div>
+
+            <!-- Visualization -->
+            <div id="vizSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Vizualizacija klastera</h2>
+                <div class="mb-4" id="axisSelectors"></div>
+                <canvas id="clusterChart"></canvas>
+            </div>
+
+            <!-- Cluster Details -->
+            <div id="clustersContainer" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">🎨 Detalji klastera</h2>
+                <div id="clustersList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+
+            <!-- Iteration History -->
+            <div id="iterationSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📉 Konvergencija algoritma</h2>
+                <canvas id="convergenceChart"></canvas>
+            </div>
+
+            <!-- Data Table -->
+            <div id="tableSection" style="display:none;" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Učitani podaci sa dodijeljenim klasterima</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100" id="tableHeader"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📚 Kako rade algoritmi klasteriranja?</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-blue-50 rounded-lg p-6 border-l-4 border-blue-500">
+                        <h3 class="font-bold text-blue-900 mb-3 text-lg">k-means algoritam</h3>
+                        <div class="space-y-3 text-sm text-blue-800">
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">1️⃣</span> Inicijaliziraj k centroida nasumično
+                            </div>
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">2️⃣</span> Dodijeli svaku tačku najbližem centroidu
+                            </div>
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">3️⃣</span> Ažuriraj centroide kao <strong>srednju vrijednost</strong> tačaka u klasteru
+                            </div>
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">4️⃣</span> Ponavljaj korake 2-3 dok centroidi ne konvergiraju
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-50 rounded-lg p-6 border-l-4 border-purple-500">
+                        <h3 class="font-bold text-purple-900 mb-3 text-lg">k-medoids algoritam</h3>
+                        <div class="space-y-3 text-sm text-purple-800">
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">1️⃣</span> Inicijaliziraj k medoida nasumično iz podataka
+                            </div>
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">2️⃣</span> Dodijeli svaku tačku najbližem medoidu
+                            </div>
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">3️⃣</span> Ažuriraj medoide kao <strong>najreprezentativniju tačku</strong> u klasteru
+                            </div>
+                            <div class="bg-white rounded p-3">
+                                <span class="font-bold">4️⃣</span> Ponavljaj korake 2-3 dok medoidi ne konvergiraju
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-green-50 rounded-lg p-4 border border-green-300">
+                        <h3 class="font-bold text-green-900 mb-2">✅ Prednosti k-means:</h3>
+                        <ul class="text-sm text-green-800 space-y-1">
+                            <li>⚡ <strong>Brz</strong> - efikasan za velike skupove podataka</li>
+                            <li>⚡ <strong>Jednostavan</strong> - lako razumjeti i implementirati</li>
+                            <li>⚡ <strong>Skalabilan</strong> - dobro radi sa mnogo podataka</li>
+                        </ul>
+                    </div>
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-300">
+                        <h3 class="font-bold text-red-900 mb-2">⚠️ Nedostaci k-means:</h3>
+                        <ul class="text-sm text-red-800 space-y-1">
+                            <li>❌ <strong>Outlieri</strong> - osjetljiv na vrijednosti koje odstupaju</li>
+                            <li>❌ <strong>Sferični klasteri</strong> - pretpostavlja okrugle oblike</li>
+                            <li>❌ <strong>Inicijalizacija</strong> - rezultat zavisi od početnih centroida</li>
+                        </ul>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4 border border-green-300">
+                        <h3 class="font-bold text-green-900 mb-2">✅ Prednosti k-medoids:</h3>
+                        <ul class="text-sm text-green-800 space-y-1">
+                            <li>💪 <strong>Robustan</strong> - otporan na outliere</li>
+                            <li>💪 <strong>Interpretabilan</strong> - medoidi su stvarni podaci</li>
+                            <li>💪 <strong>Fleksibilan</strong> - radi sa bilo kojom metrikom</li>
+                        </ul>
+                    </div>
+                    <div class="bg-red-50 rounded-lg p-4 border border-red-300">
+                        <h3 class="font-bold text-red-900 mb-2">⚠️ Nedostaci k-medoids:</h3>
+                        <ul class="text-sm text-red-800 space-y-1">
+                            <li>🐌 <strong>Sporiji</strong> - složeniji od k-means</li>
+                            <li>🐌 <strong>Računski zahtjevan</strong> - O(k(n-k)²) po iteraciji</li>
+                            <li>🐌 <strong>Ne skalira dobro</strong> - problematičan za velike skupove</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-300">
+                    <h3 class="font-bold text-indigo-900 mb-2">💡 Metrike udaljenosti:</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-indigo-800 mt-3">
+                        <div class="bg-white rounded p-3">
+                            <strong>Euclidean:</strong> √Σ(xi - yi)²<br>
+                            <span class="text-xs">Standardna "prava linija" udaljenost</span>
+                        </div>
+                        <div class="bg-white rounded p-3">
+                            <strong>Manhattan:</strong> Σ|xi - yi|<br>
+                            <span class="text-xs">Udaljenost po "blokovima grada"</span>
+                        </div>
+                        <div class="bg-white rounded p-3">
+                            <strong>Minkowski:</strong> (Σ|xi - yi|ᵖ)^(1/p)<br>
+                            <span class="text-xs">Generalizacija (p=2: Euclidean, p=1: Manhattan)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 bg-yellow-50 rounded-lg p-4 border border-yellow-300">
+                    <h3 class="font-bold text-yellow-900 mb-2">🎯 Kada koristiti koju metodu:</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-yellow-800 mt-2">
+                        <div>
+                            <strong>Koristi k-means kada:</strong>
+                            <ul class="mt-1 space-y-1 ml-4">
+                                <li>• Imaš velike skupove podataka</li>
+                                <li>• Podaci nemaju puno outliera</li>
+                                <li>• Klasteri su približno sferični</li>
+                                <li>• Brzina je prioritet</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>Koristi k-medoids kada:</strong>
+                            <ul class="mt-1 space-y-1 ml-4">
+                                <li>• Podaci sadrže outliere</li>
+                                <li>• Trebaš reprezentativne tačke klastera</li>
+                                <li>• Koristiš custom metriku udaljenosti</li>
+                                <li>• Klasteri nisu sferični</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center text-gray-500 text-sm mt-6">
+                <p>Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = [];
+        let headers = [];
+        let clusterChart = null;
+        let convergenceChart = null;
+        let clusterAssignments = [];
+        let centroids = [];
+        let iterationHistory = [];
+        let xAxisIndex = 0;
+        let yAxisIndex = 1;
+
+        document.getElementById('kValue').addEventListener('input', function() {
+            document.getElementById('kDisplay').textContent = this.value;
+        });
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return null;
+            
+            headers = lines[0].split(',').map(h => h.trim());
+            const parsedData = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((h, idx) => {
+                        const num = parseFloat(values[idx]);
+                        row[h] = isNaN(num) ? values[idx] : num;
+                    });
+                    parsedData.push(row);
+                }
+            }
+            
+            return parsedData;
+        }
+
+        function loadData() {
+            const csvText = document.getElementById('dataInput').value;
+            const parsed = parseCSV(csvText);
+            
+            if (!parsed || parsed.length === 0) {
+                alert('Nema validnih podataka! Provjerite format CSV-a.');
+                return;
+            }
+            
+            data = parsed;
+            
+            // Verify all columns are numeric
+            const allNumeric = data.every(row => 
+                headers.every(h => typeof row[h] === 'number')
+            );
+            
+            if (!allNumeric) {
+                alert('Svi atributi moraju biti numerički za klasteriranje!');
+                return;
+            }
+            
+            document.getElementById('dataInfo').innerHTML = `
+                <div class="bg-green-50 border border-green-300 rounded p-3">
+                    <p class="text-green-900 font-semibold">✅ Podaci uspješno učitani!</p>
+                    <p class="text-green-800 text-sm">Broj tačaka: ${data.length}</p>
+                    <p class="text-green-800 text-sm">Atributi: ${headers.join(', ')}</p>
+                    <p class="text-green-800 text-sm">Dimenzija: ${headers.length}D</p>
+                </div>
+            `;
+            
+            // Update k max value
+            const kInput = document.getElementById('kValue');
+            kInput.max = Math.min(data.length - 1, 10);
+            if (parseInt(kInput.value) >= data.length) {
+                kInput.value = Math.min(3, data.length - 1);
+                document.getElementById('kDisplay').textContent = kInput.value;
+            }
+            
+            setupAxisSelectors();
+            
+            document.getElementById('settingsSection').style.display = 'block';
+        }
+
+        function setupAxisSelectors() {
+            if (headers.length >= 2) {
+                const container = document.getElementById('axisSelectors');
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">X osa:</label>
+                            <select id="xAxisSelect" onchange="updateVisualization()" class="w-full p-2 border-2 rounded-lg">
+                                ${headers.map((h, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${h}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Y osa:</label>
+                            <select id="yAxisSelect" onchange="updateVisualization()" class="w-full p-2 border-2 rounded-lg">
+                                ${headers.map((h, i) => `<option value="${i}" ${i === 1 ? 'selected' : ''}>${h}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateVisualization() {
+            xAxisIndex = parseInt(document.getElementById('xAxisSelect').value);
+            yAxisIndex = parseInt(document.getElementById('yAxisSelect').value);
+            
+            if (clusterAssignments.length > 0) {
+                visualizeClusters();
+            }
+        }
+
+        function calculateDistance(p1, p2, metric) {
+            const features = headers;
+            
+            if (metric === 'euclidean') {
+                let sum = 0;
+                features.forEach(f => {
+                    sum += Math.pow(p1[f] - p2[f], 2);
+                });
+                return Math.sqrt(sum);
+            } else if (metric === 'manhattan') {
+                let sum = 0;
+                features.forEach(f => {
+                    sum += Math.abs(p1[f] - p2[f]);
+                });
+                return sum;
+            } else if (metric === 'minkowski') {
+                const p = 3;
+                let sum = 0;
+                features.forEach(f => {
+                    sum += Math.pow(Math.abs(p1[f] - p2[f]), p);
+                });
+                return Math.pow(sum, 1/p);
+            }
+            return 0;
+        }
+
+        function initializeCentroids(k, method) {
+            const initialCentroids = [];
+            const indices = new Set();
+            
+            // Random initialization
+            while (indices.size < k) {
+                indices.add(Math.floor(Math.random() * data.length));
+            }
+            
+            Array.from(indices).forEach(idx => {
+                if (method === 'kmeans') {
+                    // For k-means, copy the point
+                    initialCentroids.push({...data[idx]});
+                } else {
+                    // For k-medoids, store the index
+                    initialCentroids.push(idx);
+                }
+            });
+            
+            return initialCentroids;
+        }
+
+        function assignToClusters(centers, method, metric) {
+            const assignments = [];
+            
+            data.forEach(point => {
+                let minDist = Infinity;
+                let cluster = 0;
+                
+                centers.forEach((center, idx) => {
+                    const centerPoint = method === 'kmedoids' ? data[center] : center;
+                    const dist = calculateDistance(point, centerPoint, metric);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        cluster = idx;
+                    }
+                });
+                
+                assignments.push(cluster);
+            });
+            
+            return assignments;
+        }
+
+        function updateCentroids(assignments, k) {
+            const newCentroids = [];
+            
+            for (let i = 0; i < k; i++) {
+                const clusterPoints = data.filter((_, idx) => assignments[idx] === i);
+                
+                if (clusterPoints.length === 0) {
+                    // If cluster is empty, reinitialize randomly
+                    newCentroids.push({...data[Math.floor(Math.random() * data.length)]});
+                    continue;
+                }
+                
+                const centroid = {};
+                headers.forEach(h => {
+                    const sum = clusterPoints.reduce((acc, p) => acc + p[h], 0);
+                    centroid[h] = sum / clusterPoints.length;
+                });
+                
+                newCentroids.push(centroid);
+            }
+            
+            return newCentroids;
+        }
+
+        function updateMedoids(assignments, k, metric) {
+            const newMedoids = [];
+            
+            for (let i = 0; i < k; i++) {
+                const clusterIndices = data.map((_, idx) => idx).filter(idx => assignments[idx] === i);
+                
+                if (clusterIndices.length === 0) {
+                    newMedoids.push(Math.floor(Math.random() * data.length));
+                    continue;
+                }
+                
+                // Find point that minimizes sum of distances to all other points in cluster
+                let bestMedoid = clusterIndices[0];
+                let minTotalDist = Infinity;
+                
+                clusterIndices.forEach(candidateIdx => {
+                    let totalDist = 0;
+                    clusterIndices.forEach(otherIdx => {
+                        totalDist += calculateDistance(data[candidateIdx], data[otherIdx], metric);
+                    });
+                    
+                    if (totalDist < minTotalDist) {
+                        minTotalDist = totalDist;
+                        bestMedoid = candidateIdx;
+                    }
+                });
+                
+                newMedoids.push(bestMedoid);
+            }
+            
+            return newMedoids;
+        }
+
+        function calculateInertia(assignments, centers, method, metric) {
+            let inertia = 0;
+            
+            data.forEach((point, idx) => {
+                const clusterIdx = assignments[idx];
+                const center = method === 'kmedoids' ? data[centers[clusterIdx]] : centers[clusterIdx];
+                const dist = calculateDistance(point, center, metric);
+                inertia += dist * dist;
+            });
+            
+            return inertia;
+        }
+
+        function centersEqual(c1, c2, method) {
+            if (method === 'kmedoids') {
+                return JSON.stringify(c1) === JSON.stringify(c2);
+            }
+            
+            return c1.every((center, idx) => {
+                return headers.every(h => Math.abs(center[h] - c2[idx][h]) < 1e-6);
+            });
+        }
+
+        function runClustering() {
+            if (data.length === 0) {
+                alert('Prvo učitaj podatke!');
+                return;
+            }
+            
+            const k = parseInt(document.getElementById('kValue').value);
+            const method = document.getElementById('algorithmSelect').value;
+            const metric = document.getElementById('distanceMetric').value;
+            const maxIter = parseInt(document.getElementById('maxIterations').value);
+            
+            if (k >= data.length) {
+                alert(`k mora biti manji od broja tačaka (${data.length})!`);
+                return;
+            }
+            
+            iterationHistory = [];
+            centroids = initializeCentroids(k, method);
+            clusterAssignments = assignToClusters(centroids, method, metric);
+            
+            let converged = false;
+            let iteration = 0;
+            
+            while (!converged && iteration < maxIter) {
+                const oldCentroids = method === 'kmedoids' ? [...centroids] : centroids.map(c => ({...c}));
+                
+                if (method === 'kmeans') {
+                    centroids = updateCentroids(clusterAssignments, k);
+                } else {
+                    centroids = updateMedoids(clusterAssignments, k, metric);
+                }
+                
+                clusterAssignments = assignToClusters(centroids, method, metric);
+                
+                const inertia = calculateInertia(clusterAssignments, centroids, method, metric);
+                iterationHistory.push({iteration: iteration + 1, inertia});
+                
+                converged = centersEqual(oldCentroids, centroids, method);
+                iteration++;
+            }
+            
+            displayResults(k, method, metric, iteration, converged);
+            visualizeClusters();
+            displayClusterDetails(k, method);
+            visualizeConvergence();
+            updateDataTable();
+            
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('vizSection').style.display = 'block';
+            document.getElementById('clustersContainer').style.display = 'block';
+            document.getElementById('iterationSection').style.display = 'block';
+            document.getElementById('tableSection').style.display = 'block';
+        }
+
+        function displayResults(k, method, metric, iterations, converged) {
+            const finalInertia = iterationHistory[iterationHistory.length - 1].inertia;
+            const clusterSizes = Array(k).fill(0);
+            clusterAssignments.forEach(c => clusterSizes[c]++);
+            
+            const avgSize = (data.length / k).toFixed(1);
+            
+            document.getElementById('resultsSummary').innerHTML = `
+                <div class="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                    <div class="text-sm text-blue-600 font-semibold">Metoda</div>
+                    <div class="text-2xl font-bold text-blue-900">${method === 'kmeans' ? 'k-means' : 'k-medoids'}</div>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-500">
+                    <div class="text-sm text-purple-600 font-semibold">Iteracije</div>
+                    <div class="text-2xl font-bold text-purple-900">${iterations} ${converged ? '✓' : '(max)'}</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
+                    <div class="text-sm text-green-600 font-semibold">Inercija (SSE)</div>
+                    <div class="text-2xl font-bold text-green-900">${finalInertia.toFixed(2)}</div>
+                </div>
+                <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-500">
+                    <div class="text-sm text-orange-600 font-semibold">Prosječna veličina</div>
+                    <div class="text-2xl font-bold text-orange-900">${avgSize} tačaka</div>
+                </div>
+            `;
+        }
+
+        function getClusterColor(index) {
+            const colors = [
+                { bg: 'rgba(34, 197, 94, 0.6)', border: 'rgba(34, 197, 94, 1)' },
+                { bg: 'rgba(59, 130, 246, 0.6)', border: 'rgba(59, 130, 246, 1)' },
+                { bg: 'rgba(239, 68, 68, 0.6)', border: 'rgba(239, 68, 68, 1)' },
+                { bg: 'rgba(168, 85, 247, 0.6)', border: 'rgba(168, 85, 247, 1)' },
+                { bg: 'rgba(251, 146, 60, 0.6)', border: 'rgba(251, 146, 60, 1)' },
+                { bg: 'rgba(236, 72, 153, 0.6)', border: 'rgba(236, 72, 153, 1)' },
+                { bg: 'rgba(14, 165, 233, 0.6)', border: 'rgba(14, 165, 233, 1)' },
+                { bg: 'rgba(132, 204, 22, 0.6)', border: 'rgba(132, 204, 22, 1)' }
+            ];
+            return colors[index % colors.length];
+        }
+
+        function visualizeClusters() {
+            const ctx = document.getElementById('clusterChart');
+            
+            if (clusterChart) {
+                clusterChart.destroy();
+            }
+            
+            const k = Math.max(...clusterAssignments) + 1;
+            const xFeature = headers[xAxisIndex];
+            const yFeature = headers[yAxisIndex];
+            const method = document.getElementById('algorithmSelect').value;
+            
+            const datasets = [];
+            
+            // Plot data points by cluster
+            for (let i = 0; i < k; i++) {
+                const color = getClusterColor(i);
+                const clusterData = data
+                    .map((point, idx) => ({ point, idx }))
+                    .filter(({ idx }) => clusterAssignments[idx] === i)
+                    .map(({ point }) => ({ x: point[xFeature], y: point[yFeature] }));
+                
+                datasets.push({
+                    label: `Klaster ${i + 1}`,
+                    data: clusterData,
+                    backgroundColor: color.bg,
+                    borderColor: color.border,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                });
+            }
+            
+            // Plot centroids/medoids
+            const centerPoints = centroids.map((center, idx) => {
+                const color = getClusterColor(idx);
+                const centerPoint = method === 'kmedoids' ? data[center] : center;
+                return {
+                    label: method === 'kmedoids' ? `Medoid ${idx + 1}` : `Centroid ${idx + 1}`,
+                    data: [{ x: centerPoint[xFeature], y: centerPoint[yFeature] }],
+                    backgroundColor: color.border,
+                    borderColor: '#000',
+                    borderWidth: 2,
+                    pointRadius: 12,
+                    pointStyle: method === 'kmedoids' ? 'rectRot' : 'star',
+                    pointHoverRadius: 15
+                };
+            });
+            
+            datasets.push(...centerPoints);
+
+            clusterChart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        title: { 
+                            display: true, 
+                            text: `Klasteri: ${xFeature} vs ${yFeature}`,
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: xFeature } },
+                        y: { title: { display: true, text: yFeature } }
+                    }
+                }
+            });
+        }
+
+        function displayClusterDetails(k, method) {
+            const container = document.getElementById('clustersList');
+            const metric = document.getElementById('distanceMetric').value;
+            
+            let html = '';
+            
+            for (let i = 0; i < k; i++) {
+                const clusterData = data
+                    .map((point, idx) => ({ point, idx }))
+                    .filter(({ idx }) => clusterAssignments[idx] === i);
+                
+                const color = getClusterColor(i);
+                const centerPoint = method === 'kmedoids' ? data[centroids[i]] : centroids[i];
+                
+                // Calculate statistics
+                const stats = {};
+                headers.forEach(h => {
+                    const values = clusterData.map(({ point }) => point[h]);
+                    stats[h] = {
+                        mean: (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2),
+                        min: Math.min(...values).toFixed(2),
+                        max: Math.max(...values).toFixed(2)
+                    };
+                });
+                
+                // Calculate average distance to center
+                let avgDist = 0;
+                clusterData.forEach(({ point }) => {
+                    avgDist += calculateDistance(point, centerPoint, metric);
+                });
+                avgDist = (avgDist / clusterData.length).toFixed(3);
+                
+                html += `
+                    <div class="cluster-card rounded-lg p-4 border-2" style="border-color: ${color.border}; background: linear-gradient(to br, ${color.bg}, white);">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-lg">Klaster ${i + 1}</h3>
+                            <span class="px-3 py-1 rounded-full text-sm font-bold" style="background: ${color.border}; color: white;">
+                                ${clusterData.length} tačaka
+                            </span>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-3 mb-3">
+                            <div class="font-semibold text-sm mb-2">${method === 'kmedoids' ? '📍 Medoid' : '⭐ Centroid'}:</div>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                ${headers.map(h => `
+                                    <div class="bg-gray-50 rounded p-2">
+                                        <strong>${h}:</strong> ${centerPoint[h].toFixed(2)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${method === 'kmedoids' ? `
+                                <div class="mt-2 text-xs text-gray-600">
+                                    (Indeks u podacima: ${centroids[i]})
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-3 mb-3">
+                            <div class="font-semibold text-sm mb-2">📊 Statistika:</div>
+                            <div class="space-y-2 text-xs">
+                                ${headers.map(h => `
+                                    <div>
+                                        <strong>${h}:</strong> 
+                                        µ=${stats[h].mean}, 
+                                        min=${stats[h].min}, 
+                                        max=${stats[h].max}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-3">
+                            <div class="text-xs text-gray-600">
+                                <strong>Prosječna udaljenost od centra:</strong> ${avgDist}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function visualizeConvergence() {
+            const ctx = document.getElementById('convergenceChart');
+            
+            if (convergenceChart) {
+                convergenceChart.destroy();
+            }
+            
+            convergenceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: iterationHistory.map(h => h.iteration),
+                    datasets: [{
+                        label: 'Inercija (SSE)',
+                        data: iterationHistory.map(h => h.inertia),
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true },
+                        title: { 
+                            display: true, 
+                            text: 'Konvergencija algoritma (smanjenje inercije)',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Iteracija' }
+                        },
+                        y: { 
+                            title: { display: true, text: 'Inercija (SSE)' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDataTable() {
+            const thead = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+            
+            thead.innerHTML = `<tr>${headers.map(h => `<th class="p-3 text-left">${h}</th>`).join('')}<th class="p-3 text-left">Klaster</th></tr>`;
+            
+            tbody.innerHTML = data.map((row, idx) => {
+                const cluster = clusterAssignments[idx];
+                const color = getClusterColor(cluster);
+                
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        ${headers.map(h => `<td class="p-3">${row[h].toFixed(2)}</td>`).join('')}
+                        <td class="p-3">
+                            <span class="px-3 py-1 rounded-full text-sm font-bold" style="background: ${color.bg}; color: #333; border: 2px solid ${color.border};">
+                                ${cluster + 1}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

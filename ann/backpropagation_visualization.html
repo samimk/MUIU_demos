@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backpropagation vizualizacija - Korak po korak</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.2em;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr 400px;
+            gap: 25px;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .control-group:last-child {
+            border-bottom: none;
+        }
+        
+        .control-group h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button.secondary {
+            background: #6c757d;
+        }
+        
+        .input-group {
+            margin-bottom: 12px;
+        }
+        
+        .input-group label {
+            display: block;
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .network-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        #networkCanvas {
+            display: block;
+            margin: 0 auto;
+            border: 3px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+        
+        .info-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            height: fit-content;
+        }
+        
+        .step-indicator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .step-indicator h3 {
+            font-size: 1.2em;
+            margin-bottom: 8px;
+        }
+        
+        .step-indicator p {
+            font-size: 0.95em;
+            opacity: 0.95;
+        }
+        
+        .calculations {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .calculations::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .calculations::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .calculations::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+        
+        .calculations::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
+        }
+        
+        .calculations h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .calc-step {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+        
+        .calc-step.highlight {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+        }
+        
+        .iteration-separator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 20px 0 10px 0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.1em;
+        }
+        
+        .iteration-separator:first-child {
+            margin-top: 0;
+        }
+        
+        .values-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .values-table th,
+        .values-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            font-size: 0.85em;
+        }
+        
+        .values-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .values-table td {
+            font-family: 'Courier New', monospace;
+        }
+        
+        .legend {
+            background: #e8eaf6;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        
+        .legend h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }
+        
+        .legend-color {
+            width: 25px;
+            height: 15px;
+            border-radius: 3px;
+            border: 1px solid #333;
+        }
+        
+        footer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 15px;
+            margin: 30px -30px -30px -30px;
+            border-radius: 0 0 20px 20px;
+            font-size: 14px;
+        }
+        
+        .highlight-value {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #856404;
+        }
+        
+        .error-value {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .weight-update {
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Backpropagation Vizualizacija</h1>
+        <p class="subtitle">Interaktivna demonstracija propagiranja greške unazad kroz neuronsku mrežu</p>
+        
+        <div class="main-grid">
+            <!-- Controls -->
+            <div class="controls">
+                <div class="control-group">
+                    <h3>📥 Ulazni podaci</h3>
+                    <div class="input-group">
+                        <label>x₁:</label>
+                        <input type="number" id="input1" value="0.5" step="0.1" min="0" max="1">
+                    </div>
+                    <div class="input-group">
+                        <label>x₂:</label>
+                        <input type="number" id="input2" value="0.8" step="0.1" min="0" max="1">
+                    </div>
+                    <div class="input-group">
+                        <label>Ciljna vrijednost (t):</label>
+                        <input type="number" id="target" value="0.9" step="0.1" min="0" max="1">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>⚙️ Parametri</h3>
+                    <div class="input-group">
+                        <label>Brzina učenja (η):</label>
+                        <input type="number" id="learningRate" value="0.5" step="0.1" min="0.1" max="1">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎮 Kontrole</h3>
+                    <button id="resetBtn">🔄 Resetuj težine</button>
+                    <button id="forwardBtn">▶️ Forward pass</button>
+                    <button id="backwardBtn" disabled>⏪ Backward pass</button>
+                    <button id="updateBtn" disabled>✏️ Ažuriraj težine</button>
+                    <button id="autoBtn" class="secondary">⚡ Auto treniranje (10 epoha)</button>
+                </div>
+                
+                <div class="legend">
+                    <h4>📖 Legenda</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4CAF50;"></div>
+                        <span>Aktivni signal (forward)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f44336;"></div>
+                        <span>Greška (backward)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFC107;"></div>
+                    <span>Ažurirana težina</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Network Visualization -->
+            <div class="network-container">
+                <canvas id="networkCanvas" width="900" height="700"></canvas>
+            </div>
+            
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <div class="step-indicator">
+                    <h3 id="stepTitle">Korak 0: Inicijalizacija</h3>
+                    <p id="stepDesc">Postavite ulazne vrijednosti i kliknite "Forward pass"</p>
+                </div>
+                
+                <div class="calculations">
+                    <h4>📊 Izračunavanja:</h4>
+                    <div id="calcDisplay">
+                        <div class="calc-step">
+                            Čeka se forward pass...
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: white; padding: 15px; border-radius: 10px;">
+                    <h4 style="color: #333; margin-bottom: 10px;">📈 Vrijednosti mreže:</h4>
+                    <table class="values-table">
+                        <thead>
+                            <tr>
+                                <th>Parametar</th>
+                                <th>Vrijednost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="valuesTable">
+                            <tr>
+                                <td>Izlaz mreže (y)</td>
+                                <td id="outputValue">-</td>
+                            </tr>
+                            <tr>
+                                <td>Greška (e = t - y)</td>
+                                <td id="errorValue">-</td>
+                            </tr>
+                            <tr>
+                                <td>MSE</td>
+                                <td id="mseValue">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija | 2025
+        </footer>
+    </div>
+
+    <script>
+        // Neural Network Class
+        class NeuralNetwork {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                // Initialize weights randomly between -0.5 and 0.5
+                this.W1 = [
+                    [Math.random() - 0.5, Math.random() - 0.5],  // w11, w12
+                    [Math.random() - 0.5, Math.random() - 0.5],  // w21, w22
+                    [Math.random() - 0.5, Math.random() - 0.5]   // w31, w32
+                ];
+                this.b1 = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
+                
+                this.W2 = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];  // w11, w12, w13
+                this.b2 = Math.random() - 0.5;
+                
+                // Storage for forward pass
+                this.input = null;
+                this.z1 = null;
+                this.a1 = null;
+                this.z2 = null;
+                this.output = null;
+                
+                // Storage for backward pass
+                this.delta2 = null;
+                this.delta1 = null;
+                this.dW2 = null;
+                this.db2 = null;
+                this.dW1 = null;
+                this.db1 = null;
+            }
+            
+            sigmoid(x) {
+                return 1 / (1 + Math.exp(-x));
+            }
+            
+            sigmoidDerivative(x) {
+                const s = this.sigmoid(x);
+                return s * (1 - s);
+            }
+            
+            forward(input) {
+                this.input = input;
+                
+                // Hidden layer
+                this.z1 = [];
+                for (let i = 0; i < 3; i++) {
+                    let sum = this.b1[i];
+                    for (let j = 0; j < 2; j++) {
+                        sum += this.W1[i][j] * input[j];
+                    }
+                    this.z1[i] = sum;
+                }
+                
+                this.a1 = this.z1.map(z => this.sigmoid(z));
+                
+                // Output layer
+                this.z2 = this.b2;
+                for (let i = 0; i < 3; i++) {
+                    this.z2 += this.W2[i] * this.a1[i];
+                }
+                
+                this.output = this.sigmoid(this.z2);
+                
+                return this.output;
+            }
+            
+            backward(target, learningRate) {
+                // Output layer error
+                const error = this.output - target;
+                this.delta2 = error * this.sigmoidDerivative(this.z2);
+                
+                // Output layer gradients
+                this.dW2 = this.a1.map(a => this.delta2 * a);
+                this.db2 = this.delta2;
+                
+                // Hidden layer error
+                this.delta1 = [];
+                for (let i = 0; i < 3; i++) {
+                    this.delta1[i] = this.W2[i] * this.delta2 * this.sigmoidDerivative(this.z1[i]);
+                }
+                
+                // Hidden layer gradients
+                this.dW1 = [];
+                this.db1 = [];
+                for (let i = 0; i < 3; i++) {
+                    this.dW1[i] = this.input.map(x => this.delta1[i] * x);
+                    this.db1[i] = this.delta1[i];
+                }
+            }
+            
+            updateWeights(learningRate) {
+                // Update output layer
+                for (let i = 0; i < 3; i++) {
+                    this.W2[i] -= learningRate * this.dW2[i];
+                }
+                this.b2 -= learningRate * this.db2;
+                
+                // Update hidden layer
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 2; j++) {
+                        this.W1[i][j] -= learningRate * this.dW1[i][j];
+                    }
+                    this.b1[i] -= learningRate * this.db1[i];
+                }
+            }
+        }
+        
+        // Visualization
+        const canvas = document.getElementById('networkCanvas');
+        const ctx = canvas.getContext('2d');
+        const nn = new NeuralNetwork();
+        
+        let currentStep = 0;  // 0: init, 1: forward, 2: backward, 3: update
+        let animationPhase = 0;
+        let iterationCount = 0;
+        let calculationHistory = '';  // Store all calculation history
+        
+        const layerX = [150, 450, 750];
+        const neuronRadius = 35;
+        
+        // Neuron positions
+        const positions = {
+            input: [
+                {x: layerX[0], y: 250},
+                {x: layerX[0], y: 450}
+            ],
+            hidden: [
+                {x: layerX[1], y: 200},
+                {x: layerX[1], y: 350},
+                {x: layerX[1], y: 500}
+            ],
+            output: [
+                {x: layerX[2], y: 350}
+            ]
+        };
+        
+        function drawNetwork() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw connections first (behind neurons)
+            drawConnections();
+            
+            // Draw neurons
+            drawNeurons();
+            
+            // Draw labels
+            drawLabels();
+        }
+        
+        function drawConnections() {
+            // Input to hidden
+            for (let i = 0; i < 2; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const weight = nn.W1[j][i];
+                    const thickness = Math.abs(weight) * 5 + 1;
+                    let color = weight > 0 ? '#4CAF50' : '#f44336';
+                    let alpha = 0.3;
+                    
+                    if (currentStep === 1 && animationPhase > i) {
+                        alpha = 0.7;
+                    } else if (currentStep === 2) {
+                        color = '#f44336';
+                        alpha = 0.7;
+                    } else if (currentStep === 3) {
+                        color = '#FFC107';
+                        alpha = 0.8;
+                    }
+                    
+                    ctx.strokeStyle = color;
+                    ctx.globalAlpha = alpha;
+                    ctx.lineWidth = thickness;
+                    ctx.beginPath();
+                    ctx.moveTo(positions.input[i].x + neuronRadius, positions.input[i].y);
+                    ctx.lineTo(positions.hidden[j].x - neuronRadius, positions.hidden[j].y);
+                    ctx.stroke();
+                    
+                    // Draw weight value
+                    const midX = (positions.input[i].x + positions.hidden[j].x) / 2;
+                    const midY = (positions.input[i].y + positions.hidden[j].y) / 2;
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = '#333';
+                    ctx.font = 'bold 11px Arial';
+                    ctx.fillText(weight.toFixed(2), midX, midY);
+                }
+            }
+            
+            // Hidden to output
+            for (let i = 0; i < 3; i++) {
+                const weight = nn.W2[i];
+                const thickness = Math.abs(weight) * 5 + 1;
+                let color = weight > 0 ? '#4CAF50' : '#f44336';
+                let alpha = 0.3;
+                
+                if (currentStep === 1 && animationPhase > 2) {
+                    alpha = 0.7;
+                } else if (currentStep === 2) {
+                    color = '#f44336';
+                    alpha = 0.7;
+                } else if (currentStep === 3) {
+                    color = '#FFC107';
+                    alpha = 0.8;
+                }
+                
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = alpha;
+                ctx.lineWidth = thickness;
+                ctx.beginPath();
+                ctx.moveTo(positions.hidden[i].x + neuronRadius, positions.hidden[i].y);
+                ctx.lineTo(positions.output[0].x - neuronRadius, positions.output[0].y);
+                ctx.stroke();
+                
+                // Draw weight value
+                const midX = (positions.hidden[i].x + positions.output[0].x) / 2;
+                const midY = (positions.hidden[i].y + positions.output[0].y) / 2;
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 11px Arial';
+                ctx.fillText(weight.toFixed(2), midX, midY);
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawNeurons() {
+            // Input neurons
+            positions.input.forEach((pos, i) => {
+                drawNeuron(pos.x, pos.y, nn.input ? nn.input[i] : 0, '#2196F3', currentStep >= 1);
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`x${i+1}`, pos.x, pos.y + 5);
+            });
+            
+            // Hidden neurons
+            positions.hidden.forEach((pos, i) => {
+                const value = nn.a1 ? nn.a1[i] : 0;
+                const isActive = currentStep >= 1;
+                const hasError = currentStep >= 2;
+                drawNeuron(pos.x, pos.y, value, hasError ? '#f44336' : '#4CAF50', isActive);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`h${i+1}`, pos.x, pos.y + 5);
+                
+                if (nn.a1) {
+                    ctx.fillStyle = '#333';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(value.toFixed(3), pos.x, pos.y + 55);
+                }
+            });
+            
+            // Output neuron
+            const outputValue = nn.output || 0;
+            const hasError = currentStep >= 2;
+            drawNeuron(positions.output[0].x, positions.output[0].y, outputValue, 
+                      hasError ? '#f44336' : '#4CAF50', currentStep >= 1);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('y', positions.output[0].x, positions.output[0].y + 5);
+            
+            if (nn.output !== null) {
+                ctx.fillStyle = '#333';
+                ctx.font = '11px Arial';
+                ctx.fillText(outputValue.toFixed(3), positions.output[0].x, positions.output[0].y + 55);
+            }
+        }
+        
+        function drawNeuron(x, y, value, color, isActive) {
+            // Outer circle (glow effect when active)
+            if (isActive) {
+                const gradient = ctx.createRadialGradient(x, y, neuronRadius * 0.3, x, y, neuronRadius * 1.2);
+                gradient.addColorStop(0, color + 'CC');
+                gradient.addColorStop(1, color + '00');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, neuronRadius * 1.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Main circle
+            ctx.fillStyle = isActive ? color : '#e0e0e0';
+            ctx.beginPath();
+            ctx.arc(x, y, neuronRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Inner highlight
+            const highlightGradient = ctx.createRadialGradient(x - 10, y - 10, 5, x, y, neuronRadius);
+            highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+            highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = highlightGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, neuronRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function drawLabels() {
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            
+            ctx.fillText('Input Layer', layerX[0], 100);
+            ctx.fillText('Hidden Layer', layerX[1], 100);
+            ctx.fillText('Output Layer', layerX[2], 100);
+            
+            // Activation functions
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#666';
+            ctx.fillText('f = sigmoid', layerX[1], 620);
+            ctx.fillText('f = sigmoid', layerX[2], 620);
+        }
+        
+        function updateCalculations() {
+            const calcDisplay = document.getElementById('calcDisplay');
+            let html = '';
+            
+            if (currentStep === 0) {
+                calculationHistory = '<div class="calc-step">Čeka se forward pass...</div>';
+                calcDisplay.innerHTML = calculationHistory;
+                return;
+            } else if (currentStep === 1) {
+                // Forward pass calculations - start new iteration
+                iterationCount++;
+                html += `<div class="iteration-separator">🔄 Iteracija ${iterationCount} - FORWARD PASS</div>`;
+                
+                html += '<div class="calc-step"><strong>Skriveni sloj:</strong></div>';
+                for (let i = 0; i < 3; i++) {
+                    html += `<div class="calc-step">
+                        z₁[${i+1}] = ${nn.b1[i].toFixed(3)} + ${nn.W1[i][0].toFixed(3)}×${nn.input[0].toFixed(2)} + ${nn.W1[i][1].toFixed(3)}×${nn.input[1].toFixed(2)}<br>
+                        z₁[${i+1}] = <span class="highlight-value">${nn.z1[i].toFixed(3)}</span><br>
+                        a₁[${i+1}] = sigmoid(${nn.z1[i].toFixed(3)}) = <span class="highlight-value">${nn.a1[i].toFixed(3)}</span>
+                    </div>`;
+                }
+                
+                html += '<div class="calc-step"><strong>Izlazni sloj:</strong></div>';
+                html += `<div class="calc-step">
+                    z₂ = ${nn.b2.toFixed(3)} + ${nn.W2[0].toFixed(3)}×${nn.a1[0].toFixed(3)} + ${nn.W2[1].toFixed(3)}×${nn.a1[1].toFixed(3)} + ${nn.W2[2].toFixed(3)}×${nn.a1[2].toFixed(3)}<br>
+                    z₂ = <span class="highlight-value">${nn.z2.toFixed(3)}</span><br>
+                    y = sigmoid(${nn.z2.toFixed(3)}) = <span class="highlight-value">${nn.output.toFixed(3)}</span>
+                </div>`;
+                
+                calculationHistory += html;
+                
+            } else if (currentStep === 2) {
+                // Backward pass calculations - append to current iteration
+                html += `<div class="iteration-separator">⏪ Iteracija ${iterationCount} - BACKWARD PASS</div>`;
+                
+                const target = parseFloat(document.getElementById('target').value);
+                const error = nn.output - target;
+                
+                html += '<div class="calc-step"><strong>Izlazni sloj - greška:</strong></div>';
+                html += `<div class="calc-step">
+                    e = y - t = ${nn.output.toFixed(3)} - ${target.toFixed(2)} = <span class="error-value">${error.toFixed(3)}</span><br>
+                    δ₂ = e × σ'(z₂) = ${error.toFixed(3)} × ${nn.sigmoidDerivative(nn.z2).toFixed(3)}<br>
+                    δ₂ = <span class="error-value">${nn.delta2.toFixed(3)}</span>
+                </div>`;
+                
+                html += '<div class="calc-step"><strong>Gradijenti izlaznog sloja:</strong></div>';
+                for (let i = 0; i < 3; i++) {
+                    html += `<div class="calc-step">
+                        ∂J/∂w₂[${i+1}] = δ₂ × a₁[${i+1}] = ${nn.delta2.toFixed(3)} × ${nn.a1[i].toFixed(3)} = <span class="error-value">${nn.dW2[i].toFixed(3)}</span>
+                    </div>`;
+                }
+                html += `<div class="calc-step">
+                    ∂J/∂b₂ = δ₂ = <span class="error-value">${nn.db2.toFixed(3)}</span>
+                </div>`;
+                
+                html += '<div class="calc-step"><strong>Skriveni sloj - greška (propagirana):</strong></div>';
+                for (let i = 0; i < 3; i++) {
+                    html += `<div class="calc-step">
+                        δ₁[${i+1}] = w₂[${i+1}] × δ₂ × σ'(z₁[${i+1}])<br>
+                        δ₁[${i+1}] = ${nn.W2[i].toFixed(3)} × ${nn.delta2.toFixed(3)} × ${nn.sigmoidDerivative(nn.z1[i]).toFixed(3)}<br>
+                        δ₁[${i+1}] = <span class="error-value">${nn.delta1[i].toFixed(3)}</span>
+                    </div>`;
+                }
+                
+                calculationHistory += html;
+                
+            } else if (currentStep === 3) {
+                // Weight update - append to current iteration
+                html += `<div class="iteration-separator">✏️ Iteracija ${iterationCount} - AŽURIRANJE TEŽINA</div>`;
+                
+                const lr = parseFloat(document.getElementById('learningRate').value);
+                
+                html += '<div class="calc-step"><strong>Izlazni sloj:</strong></div>';
+                for (let i = 0; i < 3; i++) {
+                    const oldW = nn.W2[i] + lr * nn.dW2[i];
+                    html += `<div class="calc-step">
+                        w₂[${i+1}]_novo = ${oldW.toFixed(3)} - ${lr} × ${nn.dW2[i].toFixed(3)}<br>
+                        w₂[${i+1}]_novo = <span class="weight-update">${nn.W2[i].toFixed(3)}</span>
+                    </div>`;
+                }
+                
+                html += '<div class="calc-step"><strong>Skriveni sloj (primjeri):</strong></div>';
+                for (let i = 0; i < 2; i++) {
+                    const oldW = nn.W1[i][0] + lr * nn.dW1[i][0];
+                    html += `<div class="calc-step">
+                        w₁[${i+1},1]_novo = ${oldW.toFixed(3)} - ${lr} × ${nn.dW1[i][0].toFixed(3)} = <span class="weight-update">${nn.W1[i][0].toFixed(3)}</span>
+                    </div>`;
+                }
+                html += '<div class="calc-step">(...i ostale težine)</div>';
+                
+                calculationHistory += html;
+            }
+            
+            calcDisplay.innerHTML = calculationHistory;
+            
+            // Auto-scroll to bottom
+            const calcContainer = document.querySelector('.calculations');
+            calcContainer.scrollTop = calcContainer.scrollHeight;
+        }
+        
+        function updateStepIndicator() {
+            const stepTitle = document.getElementById('stepTitle');
+            const stepDesc = document.getElementById('stepDesc');
+            
+            switch(currentStep) {
+                case 0:
+                    stepTitle.textContent = 'Korak 0: Inicijalizacija';
+                    stepDesc.textContent = 'Postavite ulazne vrijednosti i kliknite "Forward pass"';
+                    break;
+                case 1:
+                    stepTitle.textContent = 'Korak 1: Forward Pass';
+                    stepDesc.textContent = 'Signali se propagiraju naprijed kroz mrežu';
+                    break;
+                case 2:
+                    stepTitle.textContent = 'Korak 2: Backward Pass';
+                    stepDesc.textContent = 'Greška se propagira unazad i računaju se gradijenti';
+                    break;
+                case 3:
+                    stepTitle.textContent = 'Korak 3: Ažuriranje težina';
+                    stepDesc.textContent = 'Težine se ažuriraju pomoću izračunatih gradijenata';
+                    break;
+            }
+        }
+        
+        function updateValuesTable() {
+            if (nn.output !== null) {
+                const target = parseFloat(document.getElementById('target').value);
+                const error = nn.output - target;
+                const mse = error * error;
+                
+                document.getElementById('outputValue').textContent = nn.output.toFixed(4);
+                document.getElementById('errorValue').textContent = error.toFixed(4);
+                document.getElementById('mseValue').textContent = mse.toFixed(4);
+            } else {
+                document.getElementById('outputValue').textContent = '-';
+                document.getElementById('errorValue').textContent = '-';
+                document.getElementById('mseValue').textContent = '-';
+            }
+        }
+        
+        // Event handlers
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            nn.reset();
+            currentStep = 0;
+            iterationCount = 0;
+            calculationHistory = '';
+            drawNetwork();
+            updateStepIndicator();
+            updateCalculations();
+            updateValuesTable();
+            
+            document.getElementById('forwardBtn').disabled = false;
+            document.getElementById('backwardBtn').disabled = true;
+            document.getElementById('updateBtn').disabled = true;
+        });
+        
+        document.getElementById('forwardBtn').addEventListener('click', () => {
+            const input1 = parseFloat(document.getElementById('input1').value);
+            const input2 = parseFloat(document.getElementById('input2').value);
+            
+            nn.forward([input1, input2]);
+            currentStep = 1;
+            
+            drawNetwork();
+            updateStepIndicator();
+            updateCalculations();
+            updateValuesTable();
+            
+            document.getElementById('forwardBtn').disabled = true;
+            document.getElementById('backwardBtn').disabled = false;
+        });
+        
+        document.getElementById('backwardBtn').addEventListener('click', () => {
+            const target = parseFloat(document.getElementById('target').value);
+            const learningRate = parseFloat(document.getElementById('learningRate').value);
+            
+            nn.backward(target, learningRate);
+            currentStep = 2;
+            
+            drawNetwork();
+            updateStepIndicator();
+            updateCalculations();
+            
+            document.getElementById('backwardBtn').disabled = true;
+            document.getElementById('updateBtn').disabled = false;
+        });
+        
+        document.getElementById('updateBtn').addEventListener('click', () => {
+            const learningRate = parseFloat(document.getElementById('learningRate').value);
+            
+            nn.updateWeights(learningRate);
+            currentStep = 3;
+            
+            drawNetwork();
+            updateStepIndicator();
+            updateCalculations();
+            
+            document.getElementById('updateBtn').disabled = true;
+            document.getElementById('forwardBtn').disabled = false;
+        });
+        
+        document.getElementById('autoBtn').addEventListener('click', () => {
+            const input1 = parseFloat(document.getElementById('input1').value);
+            const input2 = parseFloat(document.getElementById('input2').value);
+            const target = parseFloat(document.getElementById('target').value);
+            const learningRate = parseFloat(document.getElementById('learningRate').value);
+            
+            // Perform 10 complete training iterations
+            for (let i = 0; i < 10; i++) {
+                // Forward pass
+                nn.forward([input1, input2]);
+                currentStep = 1;
+                updateCalculations();
+                
+                // Backward pass
+                nn.backward(target, learningRate);
+                currentStep = 2;
+                updateCalculations();
+                
+                // Update weights
+                nn.updateWeights(learningRate);
+                currentStep = 3;
+                updateCalculations();
+            }
+            
+            // Final forward pass to show final result
+            nn.forward([input1, input2]);
+            currentStep = 1;
+            
+            drawNetwork();
+            updateStepIndicator();
+            updateValuesTable();
+            
+            document.getElementById('forwardBtn').disabled = true;
+            document.getElementById('backwardBtn').disabled = false;
+            document.getElementById('updateBtn').disabled = true;
+        });
+        
+        // Initialize
+        drawNetwork();
+        updateStepIndicator();
+        updateCalculations();
+        updateValuesTable();
+    </script>
+</body>
+</html>

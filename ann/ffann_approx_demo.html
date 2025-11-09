@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FF-ANN Aproksimacija Funkcije</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .canvas-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        #mainCanvas {
+            width: 100%;
+            height: 500px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: white;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        #errorCanvas {
+            width: 100%;
+            height: 250px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            display: block;
+        }
+
+        .canvas-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .canvas-info p {
+            margin: 5px 0;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .control-section {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .control-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            font-size: 16px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .value-display {
+            text-align: right;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: #51cf66;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #40c057;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(81, 207, 102, 0.3);
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #fa5252;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-warning {
+            background: #ffd43b;
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #fcc419;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 212, 59, 0.3);
+        }
+
+        .status-box {
+            background: #e7f5ff;
+            border: 2px solid #339af0;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 15px;
+        }
+
+        .status-box p {
+            margin: 5px 0;
+            font-size: 13px;
+            color: #1864ab;
+        }
+
+        .status-box strong {
+            color: #1971c2;
+        }
+
+        .instructions {
+            background: #fff9db;
+            border-left: 4px solid #fab005;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+
+        .instructions h4 {
+            color: #e67700;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            color: #495057;
+            font-size: 13px;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+
+        .footer {
+            background: #343a40;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        .footer p {
+            margin: 5px 0;
+        }
+
+        .function-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .function-buttons button {
+            font-size: 12px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 FF-ANN Aproksimacija Funkcije</h1>
+            <p>Interaktivna demonstracija aproksimacije nelinearne funkcije pomoću Feed-Forward neuronske mreže</p>
+        </div>
+
+        <div class="main-content">
+            <div class="canvas-section">
+                <canvas id="mainCanvas"></canvas>
+                <canvas id="errorCanvas"></canvas>
+
+                <div class="canvas-info">
+                    <p><strong>📌 Upute:</strong></p>
+                    <p>• <strong>Lijevi klik</strong> - dodaj trening podatak (plavi)</p>
+                    <p>• <strong>Desni klik</strong> - dodaj test podatak (crveni)</p>
+                    <p>• Ili učitaj predefinisanu funkciju</p>
+                </div>
+
+                <div class="status-box">
+                    <p><strong>Epoha:</strong> <span id="epochDisplay">0</span></p>
+                    <p><strong>MSE (trening):</strong> <span id="trainMSE">0.0000</span></p>
+                    <p><strong>MSE (test):</strong> <span id="testMSE">0.0000</span></p>
+                    <p><strong>Broj trening podataka:</strong> <span id="trainCount">0</span></p>
+                    <p><strong>Broj test podataka:</strong> <span id="testCount">0</span></p>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="instructions">
+                    <h4>ℹ️ O demonstraciji</h4>
+                    <ul>
+                        <li>Dvoslojna FF-ANN mreža (skriveni + izlazni sloj)</li>
+                        <li>Izlazni sloj: 1 linearni neuron</li>
+                        <li>Podešavajte parametre i posmatrajte overfitting</li>
+                    </ul>
+                </div>
+
+                <div class="control-section">
+                    <h3>⚙️ Parametri mreže</h3>
+
+                    <div class="control-group">
+                        <label for="hiddenNeurons">Broj neurona u skrivenom sloju:</label>
+                        <input type="range" id="hiddenNeurons" min="1" max="20" value="5">
+                        <div class="value-display" id="hiddenNeuronsValue">5</div>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="activation">Aktivacijska funkcija:</label>
+                        <select id="activation">
+                            <option value="sigmoid">Sigmoid</option>
+                            <option value="tanh" selected>Tanh</option>
+                            <option value="relu">ReLU</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="learningRate">Brzina učenja (η):</label>
+                        <input type="range" id="learningRate" min="0.001" max="1" step="0.001" value="0.1">
+                        <div class="value-display" id="learningRateValue">0.100</div>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="maxEpochs">Broj epoha:</label>
+                        <input type="range" id="maxEpochs" min="100" max="10000" step="100" value="1000">
+                        <div class="value-display" id="maxEpochsValue">1000</div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>📊 Predefinisane funkcije</h3>
+
+                    <div class="function-buttons">
+                        <button class="btn-primary" onclick="loadSineFunction()">Sin(x)</button>
+                        <button class="btn-primary" onclick="loadQuadraticFunction()">x²</button>
+                        <button class="btn-primary" onclick="loadCubicFunction()">x³</button>
+                        <button class="btn-primary" onclick="loadExpFunction()">e^x</button>
+                        <button class="btn-primary" onclick="loadAbsFunction()">|x|</button>
+                        <button class="btn-primary" onclick="loadComplexFunction()">Složena</button>
+                    </div>
+
+                    <div class="control-group" style="margin-top: 15px;">
+                        <label for="noiseLevel">Nivo šuma:</label>
+                        <input type="range" id="noiseLevel" min="0" max="0.3" step="0.01" value="0.1">
+                        <div class="value-display" id="noiseLevelValue">0.10</div>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="testRatio">Procenat test podataka (%):</label>
+                        <input type="range" id="testRatio" min="10" max="50" step="5" value="20">
+                        <div class="value-display" id="testRatioValue">20</div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>🎮 Kontrole</h3>
+
+                    <button class="btn-success" onclick="startTraining()">▶️ Pokreni trening</button>
+                    <button class="btn-danger" onclick="stopTraining()">⏸️ Zaustavi</button>
+                    <button class="btn-warning" onclick="resetNetwork()">🔄 Resetuj mrežu</button>
+                    <button class="btn-danger" onclick="clearData()">🗑️ Obriši podatke</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Mašinsko učenje i inteligentno upravljanje</strong></p>
+            <p>Red. prof. dr Samim Konjicija, 2025.</p>
+        </div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const mainCanvas = document.getElementById('mainCanvas');
+        const mainCtx = mainCanvas.getContext('2d');
+        const errorCanvas = document.getElementById('errorCanvas');
+        const errorCtx = errorCanvas.getContext('2d');
+
+        // Set canvas sizes
+        mainCanvas.width = mainCanvas.offsetWidth;
+        mainCanvas.height = mainCanvas.offsetHeight;
+        errorCanvas.width = errorCanvas.offsetWidth;
+        errorCanvas.height = errorCanvas.offsetHeight;
+
+        // Data storage
+        let trainingData = [];
+        let testData = [];
+        let errorHistory = [];
+        let isTraining = false;
+        let epoch = 0;
+
+        // Network parameters
+        let hiddenNeurons = 5;
+        let activationFunction = 'tanh';
+        let learningRate = 0.1;
+        let maxEpochs = 1000;
+        let noiseLevel = 0.1;
+        let testRatio = 0.2;
+
+        // Neural Network Class
+        class NeuralNetwork {
+            constructor(inputSize, hiddenSize, outputSize, activation) {
+                this.inputSize = inputSize;
+                this.hiddenSize = hiddenSize;
+                this.outputSize = outputSize;
+                this.activation = activation;
+
+                // Initialize weights and biases randomly
+                this.weightsInputHidden = this.initializeWeights(inputSize, hiddenSize);
+                this.biasHidden = this.initializeWeights(1, hiddenSize)[0];
+                this.weightsHiddenOutput = this.initializeWeights(hiddenSize, outputSize);
+                this.biasOutput = this.initializeWeights(1, outputSize)[0];
+            }
+
+            initializeWeights(rows, cols) {
+                const weights = [];
+                for (let i = 0; i < rows; i++) {
+                    weights[i] = [];
+                    for (let j = 0; j < cols; j++) {
+                        weights[i][j] = (Math.random() * 2 - 1) * Math.sqrt(2.0 / rows);
+                    }
+                }
+                return weights;
+            }
+
+            // Activation functions
+            activationFunc(x, derivative = false) {
+                switch(this.activation) {
+                    case 'sigmoid':
+                        if (derivative) {
+                            const s = 1 / (1 + Math.exp(-x));
+                            return s * (1 - s);
+                        }
+                        return 1 / (1 + Math.exp(-x));
+
+                    case 'tanh':
+                        if (derivative) {
+                            const t = Math.tanh(x);
+                            return 1 - t * t;
+                        }
+                        return Math.tanh(x);
+
+                    case 'relu':
+                        if (derivative) {
+                            return x > 0 ? 1 : 0;
+                        }
+                        return Math.max(0, x);
+
+                    default:
+                        return x;
+                }
+            }
+
+            // Forward propagation
+            forward(input) {
+                // Input to hidden layer
+                this.input = input;
+                this.hiddenInput = [];
+                this.hiddenOutput = [];
+
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    let sum = this.biasHidden[j];
+                    for (let i = 0; i < this.inputSize; i++) {
+                        sum += input[i] * this.weightsInputHidden[i][j];
+                    }
+                    this.hiddenInput[j] = sum;
+                    this.hiddenOutput[j] = this.activationFunc(sum);
+                }
+
+                // Hidden to output layer (linear activation)
+                this.outputInput = [];
+                this.output = [];
+
+                for (let k = 0; k < this.outputSize; k++) {
+                    let sum = this.biasOutput[k];
+                    for (let j = 0; j < this.hiddenSize; j++) {
+                        sum += this.hiddenOutput[j] * this.weightsHiddenOutput[j][k];
+                    }
+                    this.outputInput[k] = sum;
+                    this.output[k] = sum; // Linear activation for output
+                }
+
+                return this.output;
+            }
+
+            // Backpropagation
+            backward(target, learningRate) {
+                // Calculate output layer error (linear activation derivative = 1)
+                const outputError = [];
+                for (let k = 0; k < this.outputSize; k++) {
+                    outputError[k] = target[k] - this.output[k];
+                }
+
+                // Calculate hidden layer error
+                const hiddenError = [];
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    let error = 0;
+                    for (let k = 0; k < this.outputSize; k++) {
+                        error += outputError[k] * this.weightsHiddenOutput[j][k];
+                    }
+                    hiddenError[j] = error * this.activationFunc(this.hiddenInput[j], true);
+                }
+
+                // Update weights and biases for hidden to output
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    for (let k = 0; k < this.outputSize; k++) {
+                        this.weightsHiddenOutput[j][k] += learningRate * outputError[k] * this.hiddenOutput[j];
+                    }
+                }
+                for (let k = 0; k < this.outputSize; k++) {
+                    this.biasOutput[k] += learningRate * outputError[k];
+                }
+
+                // Update weights and biases for input to hidden
+                for (let i = 0; i < this.inputSize; i++) {
+                    for (let j = 0; j < this.hiddenSize; j++) {
+                        this.weightsInputHidden[i][j] += learningRate * hiddenError[j] * this.input[i];
+                    }
+                }
+                for (let j = 0; j < this.hiddenSize; j++) {
+                    this.biasHidden[j] += learningRate * hiddenError[j];
+                }
+            }
+
+            // Train on one epoch
+            trainEpoch(data, learningRate) {
+                let totalError = 0;
+                for (let sample of data) {
+                    const output = this.forward([sample.x]);
+                    const error = sample.y - output[0];
+                    totalError += error * error;
+                    this.backward([sample.y], learningRate);
+                }
+                return totalError / data.length; // MSE
+            }
+
+            // Predict
+            predict(x) {
+                const output = this.forward([x]);
+                return output[0];
+            }
+        }
+
+        // Initialize network
+        let network = new NeuralNetwork(1, hiddenNeurons, 1, activationFunction);
+
+        // Mouse event handlers
+        mainCanvas.addEventListener('click', (e) => {
+            const rect = mainCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / mainCanvas.width;
+            const y = 1 - (e.clientY - rect.top) / mainCanvas.height;
+
+            trainingData.push({x: x, y: y});
+            draw();
+            updateStatus();
+        });
+
+        mainCanvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const rect = mainCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / mainCanvas.width;
+            const y = 1 - (e.clientY - rect.top) / mainCanvas.height;
+
+            testData.push({x: x, y: y});
+            draw();
+            updateStatus();
+        });
+
+        // Control event listeners
+        document.getElementById('hiddenNeurons').addEventListener('input', function() {
+            hiddenNeurons = parseInt(this.value);
+            document.getElementById('hiddenNeuronsValue').textContent = hiddenNeurons;
+        });
+
+        document.getElementById('activation').addEventListener('change', function() {
+            activationFunction = this.value;
+        });
+
+        document.getElementById('learningRate').addEventListener('input', function() {
+            learningRate = parseFloat(this.value);
+            document.getElementById('learningRateValue').textContent = learningRate.toFixed(3);
+        });
+
+        document.getElementById('maxEpochs').addEventListener('input', function() {
+            maxEpochs = parseInt(this.value);
+            document.getElementById('maxEpochsValue').textContent = maxEpochs;
+        });
+
+        document.getElementById('noiseLevel').addEventListener('input', function() {
+            noiseLevel = parseFloat(this.value);
+            document.getElementById('noiseLevelValue').textContent = noiseLevel.toFixed(2);
+        });
+
+        document.getElementById('testRatio').addEventListener('input', function() {
+            testRatio = parseInt(this.value);
+            document.getElementById('testRatioValue').textContent = testRatio;
+        });
+
+        // Predefined functions
+        function loadSineFunction() {
+            generateDataFromFunction((x) => 0.5 + 0.4 * Math.sin(4 * Math.PI * x));
+        }
+
+        function loadQuadraticFunction() {
+            generateDataFromFunction((x) => x * x);
+        }
+
+        function loadCubicFunction() {
+            generateDataFromFunction((x) => 0.5 + 0.5 * (2 * x - 1) ** 3);
+        }
+
+        function loadExpFunction() {
+            generateDataFromFunction((x) => 0.1 + 0.8 * (Math.exp(2 * x) - 1) / (Math.exp(2) - 1));
+        }
+
+        function loadAbsFunction() {
+            generateDataFromFunction((x) => Math.abs(2 * x - 1));
+        }
+
+        function loadComplexFunction() {
+            generateDataFromFunction((x) => 0.5 + 0.3 * Math.sin(6 * Math.PI * x) + 0.2 * Math.cos(12 * Math.PI * x));
+        }
+
+        function generateDataFromFunction(func) {
+            trainingData = [];
+            testData = [];
+
+            const numPoints = 80;
+            const allData = [];
+
+            for (let i = 0; i < numPoints; i++) {
+                const x = i / (numPoints - 1);
+                const y = func(x) + (Math.random() - 0.5) * noiseLevel;
+                allData.push({x: x, y: Math.max(0, Math.min(1, y))});
+            }
+
+            // Split into training and test data
+            const testSize = Math.floor(numPoints * testRatio / 100);
+            const indices = Array.from({length: numPoints}, (_, i) => i);
+
+            // Shuffle indices
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+
+            for (let i = 0; i < testSize; i++) {
+                testData.push(allData[indices[i]]);
+            }
+
+            for (let i = testSize; i < numPoints; i++) {
+                trainingData.push(allData[indices[i]]);
+            }
+
+            resetNetwork();
+        }
+
+        // Training control
+        let trainingInterval = null;
+
+        function startTraining() {
+            if (trainingData.length === 0) {
+                alert('Molimo dodajte trening podatke!');
+                return;
+            }
+
+            // Reset network with current parameters
+            network = new NeuralNetwork(1, hiddenNeurons, 1, activationFunction);
+            epoch = 0;
+            errorHistory = [];
+            isTraining = true;
+
+            trainingInterval = setInterval(() => {
+                if (epoch >= maxEpochs) {
+                    stopTraining();
+                    return;
+                }
+
+                // Train one epoch
+                const trainMSE = network.trainEpoch(trainingData, learningRate);
+
+                // Calculate test MSE if test data exists
+                let testMSE = 0;
+                if (testData.length > 0) {
+                    for (let sample of testData) {
+                        const pred = network.predict(sample.x);
+                        const error = sample.y - pred;
+                        testMSE += error * error;
+                    }
+                    testMSE /= testData.length;
+                }
+
+                epoch++;
+                errorHistory.push({train: trainMSE, test: testMSE});
+
+                // Update display every 10 epochs
+                if (epoch % 10 === 0) {
+                    draw();
+                    drawErrorChart();
+                    updateStatus();
+                }
+            }, 1);
+        }
+
+        function stopTraining() {
+            isTraining = false;
+            if (trainingInterval) {
+                clearInterval(trainingInterval);
+                trainingInterval = null;
+            }
+            draw();
+            drawErrorChart();
+            updateStatus();
+        }
+
+        function resetNetwork() {
+            stopTraining();
+            network = new NeuralNetwork(1, hiddenNeurons, 1, activationFunction);
+            epoch = 0;
+            errorHistory = [];
+            draw();
+            drawErrorChart();
+            updateStatus();
+        }
+
+        function clearData() {
+            stopTraining();
+            trainingData = [];
+            testData = [];
+            epoch = 0;
+            errorHistory = [];
+            draw();
+            drawErrorChart();
+            updateStatus();
+        }
+
+        // Drawing functions
+        function draw() {
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // Draw grid
+            mainCtx.strokeStyle = '#e9ecef';
+            mainCtx.lineWidth = 1;
+
+            for (let i = 0; i <= 10; i++) {
+                const x = (i / 10) * mainCanvas.width;
+                const y = (i / 10) * mainCanvas.height;
+
+                mainCtx.beginPath();
+                mainCtx.moveTo(x, 0);
+                mainCtx.lineTo(x, mainCanvas.height);
+                mainCtx.stroke();
+
+                mainCtx.beginPath();
+                mainCtx.moveTo(0, y);
+                mainCtx.lineTo(mainCanvas.width, y);
+                mainCtx.stroke();
+            }
+
+            // Draw neural network approximation
+            if (trainingData.length > 0 || testData.length > 0) {
+                mainCtx.strokeStyle = '#667eea';
+                mainCtx.lineWidth = 3;
+                mainCtx.beginPath();
+
+                for (let i = 0; i <= 200; i++) {
+                    const x = i / 200;
+                    const y = network.predict(x);
+                    const px = x * mainCanvas.width;
+                    const py = (1 - y) * mainCanvas.height;
+
+                    if (i === 0) {
+                        mainCtx.moveTo(px, py);
+                    } else {
+                        mainCtx.lineTo(px, py);
+                    }
+                }
+
+                mainCtx.stroke();
+            }
+
+            // Draw training data (blue)
+            mainCtx.fillStyle = '#339af0';
+            for (let point of trainingData) {
+                const px = point.x * mainCanvas.width;
+                const py = (1 - point.y) * mainCanvas.height;
+
+                mainCtx.beginPath();
+                mainCtx.arc(px, py, 5, 0, 2 * Math.PI);
+                mainCtx.fill();
+            }
+
+            // Draw test data (red)
+            mainCtx.fillStyle = '#ff6b6b';
+            for (let point of testData) {
+                const px = point.x * mainCanvas.width;
+                const py = (1 - point.y) * mainCanvas.height;
+
+                mainCtx.beginPath();
+                mainCtx.arc(px, py, 5, 0, 2 * Math.PI);
+                mainCtx.fill();
+            }
+        }
+
+        function drawErrorChart() {
+            errorCtx.clearRect(0, 0, errorCanvas.width, errorCanvas.height);
+
+            if (errorHistory.length === 0) return;
+
+            // Draw background
+            errorCtx.fillStyle = '#f8f9fa';
+            errorCtx.fillRect(0, 0, errorCanvas.width, errorCanvas.height);
+
+            // Find max error for scaling
+            let maxError = 0;
+            for (let point of errorHistory) {
+                maxError = Math.max(maxError, point.train, point.test);
+            }
+
+            if (maxError === 0) maxError = 1;
+
+            const padding = 40;
+            const chartWidth = errorCanvas.width - 2 * padding;
+            const chartHeight = errorCanvas.height - 2 * padding;
+
+            // Draw axes
+            errorCtx.strokeStyle = '#495057';
+            errorCtx.lineWidth = 2;
+            errorCtx.beginPath();
+            errorCtx.moveTo(padding, padding);
+            errorCtx.lineTo(padding, errorCanvas.height - padding);
+            errorCtx.lineTo(errorCanvas.width - padding, errorCanvas.height - padding);
+            errorCtx.stroke();
+
+            // Draw labels
+            errorCtx.fillStyle = '#495057';
+            errorCtx.font = '12px Segoe UI';
+            errorCtx.fillText('MSE', 5, 20);
+            errorCtx.fillText('Epoha', errorCanvas.width - 50, errorCanvas.height - 10);
+
+            // Draw grid lines
+            errorCtx.strokeStyle = '#dee2e6';
+            errorCtx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (i / 5) * chartHeight;
+                errorCtx.beginPath();
+                errorCtx.moveTo(padding, y);
+                errorCtx.lineTo(errorCanvas.width - padding, y);
+                errorCtx.stroke();
+
+                const value = (maxError * (5 - i) / 5).toFixed(4);
+                errorCtx.fillText(value, 5, y + 4);
+            }
+
+            // Draw training error (blue)
+            errorCtx.strokeStyle = '#339af0';
+            errorCtx.lineWidth = 2;
+            errorCtx.beginPath();
+
+            for (let i = 0; i < errorHistory.length; i++) {
+                const x = padding + (i / Math.max(1, errorHistory.length - 1)) * chartWidth;
+                const y = errorCanvas.height - padding - (errorHistory[i].train / maxError) * chartHeight;
+
+                if (i === 0) {
+                    errorCtx.moveTo(x, y);
+                } else {
+                    errorCtx.lineTo(x, y);
+                }
+            }
+
+            errorCtx.stroke();
+
+            // Draw test error (red)
+            if (testData.length > 0) {
+                errorCtx.strokeStyle = '#ff6b6b';
+                errorCtx.lineWidth = 2;
+                errorCtx.beginPath();
+
+                for (let i = 0; i < errorHistory.length; i++) {
+                    const x = padding + (i / Math.max(1, errorHistory.length - 1)) * chartWidth;
+                    const y = errorCanvas.height - padding - (errorHistory[i].test / maxError) * chartHeight;
+
+                    if (i === 0) {
+                        errorCtx.moveTo(x, y);
+                    } else {
+                        errorCtx.lineTo(x, y);
+                    }
+                }
+
+                errorCtx.stroke();
+            }
+
+            // Draw legend
+            errorCtx.fillStyle = '#339af0';
+            errorCtx.fillRect(errorCanvas.width - 180, 10, 20, 10);
+            errorCtx.fillStyle = '#495057';
+            errorCtx.fillText('Trening greška', errorCanvas.width - 155, 19);
+
+            if (testData.length > 0) {
+                errorCtx.fillStyle = '#ff6b6b';
+                errorCtx.fillRect(errorCanvas.width - 180, 25, 20, 10);
+                errorCtx.fillStyle = '#495057';
+                errorCtx.fillText('Test greška', errorCanvas.width - 155, 34);
+            }
+        }
+
+        function updateStatus() {
+            document.getElementById('epochDisplay').textContent = epoch;
+
+            // Calculate current MSE
+            let trainMSE = 0;
+            if (trainingData.length > 0) {
+                for (let sample of trainingData) {
+                    const pred = network.predict(sample.x);
+                    const error = sample.y - pred;
+                    trainMSE += error * error;
+                }
+                trainMSE /= trainingData.length;
+            }
+
+            let testMSE = 0;
+            if (testData.length > 0) {
+                for (let sample of testData) {
+                    const pred = network.predict(sample.x);
+                    const error = sample.y - pred;
+                    testMSE += error * error;
+                }
+                testMSE /= testData.length;
+            }
+
+            document.getElementById('trainMSE').textContent = trainMSE.toFixed(4);
+            document.getElementById('testMSE').textContent = testMSE.toFixed(4);
+            document.getElementById('trainCount').textContent = trainingData.length;
+            document.getElementById('testCount').textContent = testData.length;
+        }
+
+        // Initialize
+        draw();
+        drawErrorChart();
+        updateStatus();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            mainCanvas.width = mainCanvas.offsetWidth;
+            mainCanvas.height = mainCanvas.offsetHeight;
+            errorCanvas.width = errorCanvas.offsetWidth;
+            errorCanvas.height = errorCanvas.offsetHeight;
+            draw();
+            drawErrorChart();
+        });
+    </script>
+</body>
+</html>

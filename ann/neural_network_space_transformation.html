@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformacija prostora kroz skrivene slojeve - Neural Network Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            height: fit-content;
+        }
+        
+        .control-group {
+            margin-bottom: 25px;
+        }
+        
+        .control-group h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .control-item {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            color: #555;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            padding: 0;
+        }
+        
+        .value-display {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .visualization {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .layer-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .layer-label {
+            min-width: 120px;
+            font-weight: bold;
+            color: #333;
+            text-align: right;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            border: 3px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        .info-box {
+            background: #e8eaf6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-box h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #333;
+        }
+        
+        footer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 15px;
+            margin-top: 30px;
+            border-radius: 0 0 20px 20px;
+            font-size: 14px;
+        }
+        
+        footer a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Transformacija prostora kroz skrivene slojeve</h1>
+        <p class="subtitle">Interaktivna vizualizacija kako neuronska mreža transformira ulazni prostor</p>
+        
+        <div class="main-content">
+            <div class="controls">
+                <div class="control-group">
+                    <h3>📊 Problem</h3>
+                    <div class="control-item">
+                        <label for="dataset">Dataset:</label>
+                        <select id="dataset">
+                            <option value="xor">XOR (nelinearno razdvojiv)</option>
+                            <option value="circle">Kružni (radijalno razdvojiv)</option>
+                            <option value="spiral">Spirala (vrlo kompleksan)</option>
+                            <option value="linear">Linearno razdvojiv</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🏗️ Arhitektura</h3>
+                    <div class="control-item">
+                        <label for="hiddenNeurons">Broj neurona u skrivenom sloju: <span class="value-display" id="neuronCount">4</span></label>
+                        <input type="range" id="hiddenNeurons" min="2" max="8" value="4">
+                    </div>
+                    <div class="control-item">
+                        <label for="activation">Aktivacijska funkcija:</label>
+                        <select id="activation">
+                            <option value="tanh">tanh (preporučeno)</option>
+                            <option value="sigmoid">sigmoid</option>
+                            <option value="relu">ReLU</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎓 Treniranje</h3>
+                    <div class="control-item">
+                        <label for="learningRate">Brzina učenja: <span class="value-display" id="lrValue">0.1</span></label>
+                        <input type="range" id="learningRate" min="0.01" max="0.5" step="0.01" value="0.1">
+                    </div>
+                    <button id="trainBtn">▶️ Treniraj 100 epoha</button>
+                    <button id="resetBtn">🔄 Resetuj mrežu</button>
+                </div>
+                
+                <div class="info-box">
+                    <h4>💡 Kako koristiti:</h4>
+                    <p>
+                        1. Izaberite dataset (XOR je klasičan primjer)<br>
+                        2. Podesite broj neurona<br>
+                        3. Kliknite "Treniraj"<br>
+                        4. Posmatrajte kako se prostor transformira kroz slojeve!
+                    </p>
+                </div>
+                
+                <div class="info-box" style="margin-top: 10px;">
+                    <h4>🎯 Šta vidite:</h4>
+                    <p>
+                        <strong>Input Space:</strong> Originalni podaci<br>
+                        <strong>Hidden Layer:</strong> Linearno transformisan prostor<br>
+                        <strong>After Activation:</strong> Nelinearno "savijena" reprezentacija<br>
+                        <strong>Output:</strong> Finalna klasifikacija
+                    </p>
+                </div>
+            </div>
+            
+            <div class="visualization">
+                <div class="layer-row">
+                    <div class="layer-label">Input Space (x₁, x₂)</div>
+                    <div class="canvas-container">
+                        <canvas id="inputCanvas" width="400" height="400"></canvas>
+                    </div>
+                </div>
+                
+                <div class="layer-row">
+                    <div class="layer-label">After Layer 1 (Linear)</div>
+                    <div class="canvas-container">
+                        <canvas id="hiddenLinearCanvas" width="400" height="400"></canvas>
+                    </div>
+                </div>
+                
+                <div class="layer-row">
+                    <div class="layer-label">After Activation</div>
+                    <div class="canvas-container">
+                        <canvas id="hiddenActivatedCanvas" width="400" height="400"></canvas>
+                    </div>
+                </div>
+                
+                <div class="layer-row">
+                    <div class="layer-label">Output (Classification)</div>
+                    <div class="canvas-container">
+                        <canvas id="outputCanvas" width="400" height="400"></canvas>
+                    </div>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(255, 100, 100, 0.7);"></div>
+                        <span>Klasa 0 (crvena)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(100, 100, 255, 0.7);"></div>
+                        <span>Klasa 1 (plava)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span>Veličina tačke = sigurnost klasifikacije</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija | 2025
+        </footer>
+    </div>
+
+    <script>
+        // Neural Network implementation
+        class NeuralNetwork {
+            constructor(inputSize, hiddenSize, outputSize, activationFunc) {
+                this.inputSize = inputSize;
+                this.hiddenSize = hiddenSize;
+                this.outputSize = outputSize;
+                this.activationFunc = activationFunc;
+                this.reset();
+            }
+            
+            reset() {
+                // Initialize weights with small random values
+                this.W1 = this.randomMatrix(this.hiddenSize, this.inputSize, -0.5, 0.5);
+                this.b1 = this.randomMatrix(this.hiddenSize, 1, -0.2, 0.2);
+                this.W2 = this.randomMatrix(this.outputSize, this.hiddenSize, -0.5, 0.5);
+                this.b2 = this.randomMatrix(this.outputSize, 1, -0.2, 0.2);
+            }
+            
+            randomMatrix(rows, cols, min, max) {
+                const matrix = [];
+                for (let i = 0; i < rows; i++) {
+                    matrix[i] = [];
+                    for (let j = 0; j < cols; j++) {
+                        matrix[i][j] = Math.random() * (max - min) + min;
+                    }
+                }
+                return matrix;
+            }
+            
+            activate(x, derivative = false) {
+                switch(this.activationFunc) {
+                    case 'tanh':
+                        if (derivative) {
+                            const t = Math.tanh(x);
+                            return 1 - t * t;
+                        }
+                        return Math.tanh(x);
+                    case 'sigmoid':
+                        const sig = 1 / (1 + Math.exp(-x));
+                        return derivative ? sig * (1 - sig) : sig;
+                    case 'relu':
+                        return derivative ? (x > 0 ? 1 : 0) : Math.max(0, x);
+                }
+            }
+            
+            forward(input) {
+                // Store for visualization
+                this.input = input;
+                
+                // Hidden layer (linear transformation)
+                this.z1 = [];
+                for (let i = 0; i < this.hiddenSize; i++) {
+                    let sum = this.b1[i][0];
+                    for (let j = 0; j < this.inputSize; j++) {
+                        sum += this.W1[i][j] * input[j];
+                    }
+                    this.z1[i] = sum;
+                }
+                
+                // Apply activation
+                this.a1 = this.z1.map(z => this.activate(z));
+                
+                // Output layer
+                this.z2 = [];
+                for (let i = 0; i < this.outputSize; i++) {
+                    let sum = this.b2[i][0];
+                    for (let j = 0; j < this.hiddenSize; j++) {
+                        sum += this.W2[i][j] * this.a1[j];
+                    }
+                    this.z2[i] = sum;
+                }
+                
+                // Output activation (sigmoid for binary classification)
+                this.output = 1 / (1 + Math.exp(-this.z2[0]));
+                
+                return this.output;
+            }
+            
+            train(inputs, targets, learningRate, epochs) {
+                for (let epoch = 0; epoch < epochs; epoch++) {
+                    for (let i = 0; i < inputs.length; i++) {
+                        this.trainOne(inputs[i], targets[i], learningRate);
+                    }
+                }
+            }
+            
+            trainOne(input, target, learningRate) {
+                // Forward pass
+                this.forward(input);
+                
+                // Output layer error
+                const outputError = this.output - target;
+                const outputDelta = outputError; // derivative of sigmoid already computed in output
+                
+                // Hidden layer error
+                const hiddenError = [];
+                for (let i = 0; i < this.hiddenSize; i++) {
+                    let error = 0;
+                    for (let j = 0; j < this.outputSize; j++) {
+                        error += this.W2[j][i] * outputDelta;
+                    }
+                    hiddenError[i] = error;
+                }
+                
+                const hiddenDelta = hiddenError.map((e, i) => e * this.activate(this.z1[i], true));
+                
+                // Update output layer weights
+                for (let i = 0; i < this.outputSize; i++) {
+                    for (let j = 0; j < this.hiddenSize; j++) {
+                        this.W2[i][j] -= learningRate * outputDelta * this.a1[j];
+                    }
+                    this.b2[i][0] -= learningRate * outputDelta;
+                }
+                
+                // Update hidden layer weights
+                for (let i = 0; i < this.hiddenSize; i++) {
+                    for (let j = 0; j < this.inputSize; j++) {
+                        this.W1[i][j] -= learningRate * hiddenDelta[i] * input[j];
+                    }
+                    this.b1[i][0] -= learningRate * hiddenDelta[i];
+                }
+            }
+        }
+        
+        // Dataset generators
+        function generateXOR(n = 100) {
+            const data = [];
+            for (let i = 0; i < n; i++) {
+                const x1 = Math.random() * 2 - 1;
+                const x2 = Math.random() * 2 - 1;
+                const label = (x1 > 0) !== (x2 > 0) ? 1 : 0;
+                data.push({x: [x1, x2], y: label});
+            }
+            return data;
+        }
+        
+        function generateCircle(n = 100) {
+            const data = [];
+            for (let i = 0; i < n; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * 0.8 + 0.2;
+                const x1 = r * Math.cos(angle);
+                const x2 = r * Math.sin(angle);
+                const label = r > 0.5 ? 1 : 0;
+                data.push({x: [x1, x2], y: label});
+            }
+            return data;
+        }
+        
+        function generateSpiral(n = 100) {
+            const data = [];
+            for (let i = 0; i < n / 2; i++) {
+                const angle = i / (n/2) * Math.PI * 3;
+                const r = i / (n/2) * 0.8;
+                
+                // Spiral 1
+                const x1_1 = r * Math.cos(angle) + (Math.random() - 0.5) * 0.1;
+                const x2_1 = r * Math.sin(angle) + (Math.random() - 0.5) * 0.1;
+                data.push({x: [x1_1, x2_1], y: 0});
+                
+                // Spiral 2
+                const x1_2 = r * Math.cos(angle + Math.PI) + (Math.random() - 0.5) * 0.1;
+                const x2_2 = r * Math.sin(angle + Math.PI) + (Math.random() - 0.5) * 0.1;
+                data.push({x: [x1_2, x2_2], y: 1});
+            }
+            return data;
+        }
+        
+        function generateLinear(n = 100) {
+            const data = [];
+            for (let i = 0; i < n; i++) {
+                const x1 = Math.random() * 2 - 1;
+                const x2 = Math.random() * 2 - 1;
+                const label = x1 + x2 > 0 ? 1 : 0;
+                data.push({x: [x1, x2], y: label});
+            }
+            return data;
+        }
+        
+        // Visualization
+        class Visualizer {
+            constructor() {
+                this.canvases = {
+                    input: document.getElementById('inputCanvas'),
+                    hiddenLinear: document.getElementById('hiddenLinearCanvas'),
+                    hiddenActivated: document.getElementById('hiddenActivatedCanvas'),
+                    output: document.getElementById('outputCanvas')
+                };
+                
+                this.contexts = {
+                    input: this.canvases.input.getContext('2d'),
+                    hiddenLinear: this.canvases.hiddenLinear.getContext('2d'),
+                    hiddenActivated: this.canvases.hiddenActivated.getContext('2d'),
+                    output: this.canvases.output.getContext('2d')
+                };
+                
+                this.gridResolution = 40;
+            }
+            
+            clear() {
+                Object.values(this.contexts).forEach(ctx => {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, 400, 400);
+                });
+            }
+            
+            drawData(data, nn) {
+                this.clear();
+                
+                // Draw decision boundaries first
+                this.drawDecisionBoundary(this.contexts.input, nn, 'input');
+                this.drawDecisionBoundary(this.contexts.hiddenLinear, nn, 'hiddenLinear');
+                this.drawDecisionBoundary(this.contexts.hiddenActivated, nn, 'hiddenActivated');
+                this.drawDecisionBoundary(this.contexts.output, nn, 'output');
+                
+                // Draw data points
+                data.forEach(point => {
+                    this.drawPoint(this.contexts.input, point.x, point.x, point.y);
+                    
+                    nn.forward(point.x);
+                    
+                    // For hidden layer visualizations, we need to project to 2D
+                    if (nn.hiddenSize >= 2) {
+                        const hiddenLinear = [nn.z1[0], nn.z1[1]];
+                        const hiddenActivated = [nn.a1[0], nn.a1[1]];
+                        
+                        this.drawPoint(this.contexts.hiddenLinear, point.x, hiddenLinear, point.y);
+                        this.drawPoint(this.contexts.hiddenActivated, point.x, hiddenActivated, point.y);
+                    }
+                    
+                    this.drawPoint(this.contexts.output, point.x, point.x, nn.output > 0.5 ? 1 : 0, nn.output);
+                });
+            }
+            
+            drawPoint(ctx, originalCoords, coords, label, confidence = null) {
+                const x = (coords[0] + 1) * 200;
+                const y = (1 - coords[1]) * 200;
+                
+                // Calculate size based on confidence if provided
+                let size = 4;
+                if (confidence !== null) {
+                    // Confidence ranges from 0 to 1, we want size from 3 to 7
+                    const certainty = Math.abs(confidence - 0.5) * 2; // 0 (uncertain) to 1 (certain)
+                    size = 3 + certainty * 4;
+                }
+                
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fillStyle = label === 1 ? 'rgba(100, 100, 255, 0.8)' : 'rgba(255, 100, 100, 0.8)';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            
+            drawDecisionBoundary(ctx, nn, layer) {
+                const resolution = this.gridResolution;
+                const imageData = ctx.createImageData(400, 400);
+                
+                for (let px = 0; px < 400; px++) {
+                    for (let py = 0; py < 400; py++) {
+                        const x1 = (px / 200) - 1;
+                        const x2 = 1 - (py / 200);
+                        
+                        nn.forward([x1, x2]);
+                        
+                        let value;
+                        if (layer === 'input') {
+                            value = nn.output;
+                        } else if (layer === 'hiddenLinear' && nn.hiddenSize >= 2) {
+                            // Project back to input space approximation
+                            value = nn.output;
+                        } else if (layer === 'hiddenActivated' && nn.hiddenSize >= 2) {
+                            value = nn.output;
+                        } else {
+                            value = nn.output;
+                        }
+                        
+                        const idx = (py * 400 + px) * 4;
+                        if (value > 0.5) {
+                            imageData.data[idx] = 150;
+                            imageData.data[idx + 1] = 150;
+                            imageData.data[idx + 2] = 255;
+                        } else {
+                            imageData.data[idx] = 255;
+                            imageData.data[idx + 1] = 150;
+                            imageData.data[idx + 2] = 150;
+                        }
+                        imageData.data[idx + 3] = 30; // Alpha
+                    }
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Draw grid
+                ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 4; i++) {
+                    const pos = i * 100;
+                    ctx.beginPath();
+                    ctx.moveTo(pos, 0);
+                    ctx.lineTo(pos, 400);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(0, pos);
+                    ctx.lineTo(400, pos);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Main application
+        let nn, data, visualizer;
+        
+        function init() {
+            visualizer = new Visualizer();
+            
+            const hiddenNeurons = parseInt(document.getElementById('hiddenNeurons').value);
+            const activation = document.getElementById('activation').value;
+            
+            nn = new NeuralNetwork(2, hiddenNeurons, 1, activation);
+            
+            const datasetType = document.getElementById('dataset').value;
+            switch(datasetType) {
+                case 'xor': data = generateXOR(150); break;
+                case 'circle': data = generateCircle(150); break;
+                case 'spiral': data = generateSpiral(150); break;
+                case 'linear': data = generateLinear(150); break;
+            }
+            
+            visualizer.drawData(data, nn);
+        }
+        
+        document.getElementById('trainBtn').addEventListener('click', () => {
+            const learningRate = parseFloat(document.getElementById('learningRate').value);
+            const inputs = data.map(d => d.x);
+            const targets = data.map(d => d.y);
+            
+            nn.train(inputs, targets, learningRate, 100);
+            visualizer.drawData(data, nn);
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', init);
+        
+        document.getElementById('dataset').addEventListener('change', init);
+        document.getElementById('hiddenNeurons').addEventListener('change', function() {
+            document.getElementById('neuronCount').textContent = this.value;
+            init();
+        });
+        document.getElementById('activation').addEventListener('change', init);
+        document.getElementById('learningRate').addEventListener('input', function() {
+            document.getElementById('lrValue').textContent = this.value;
+        });
+        
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -683,24 +683,24 @@
         
         function drawTargetFunction() {
             if (!targetFunction) return;
-            
+
             ctx.strokeStyle = '#51cf66';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
             ctx.beginPath();
-            
+
             for (let i = 0; i <= 100; i++) {
                 const x = i / 100;
                 const y = targetFunction(x);
-                const pos = coordToCanvas(x, y);
-                
+                const pos = coordToCanvas(x, Math.max(0, Math.min(1, y)));
+
                 if (i === 0) {
                     ctx.moveTo(pos.x, pos.y);
                 } else {
                     ctx.lineTo(pos.x, pos.y);
                 }
             }
-            
+
             ctx.stroke();
             ctx.setLineDash([]);
         }

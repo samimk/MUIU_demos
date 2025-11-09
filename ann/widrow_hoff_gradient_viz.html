@@ -986,18 +986,46 @@
             dataPoints = [];
             targetW0 = w0;
             targetW1 = w1;
-            
+
+            // Calculate y values at x=0 and x=1 to determine range
+            const y0 = w0;
+            const y1 = w0 + w1;
+            const yMin = Math.min(y0, y1);
+            const yMax = Math.max(y0, y1);
+
+            // Add margin for noise (leave 0.1 at top and bottom)
+            const margin = 0.1 + noiseLevel;
+
+            // Scale to fit in [margin, 1-margin] range to avoid saturation
+            let scaleW0 = w0;
+            let scaleW1 = w1;
+
+            if (yMin < margin || yMax > 1 - margin) {
+                // Need to scale the function to fit
+                const targetRange = 1 - 2 * margin;
+                const currentRange = yMax - yMin;
+
+                if (currentRange > 0) {
+                    const scale = targetRange / currentRange;
+                    scaleW1 = w1 * scale;
+                    scaleW0 = margin + (w0 - yMin) * scale;
+                } else {
+                    scaleW0 = 0.5;
+                    scaleW1 = 0.5;
+                }
+            }
+
             for (let i = 0; i < numPoints; i++) {
                 const x = i / (numPoints - 1);
-                const y = w0 + w1 * x;
+                const y = scaleW0 + scaleW1 * x;
                 const noise = (Math.random() - 0.5) * noiseLevel;
-                
+
                 dataPoints.push({
                     x: x,
                     y: Math.max(0, Math.min(1, y + noise))
                 });
             }
-            
+
             optimalWeights = calculateOptimalWeights();
             resetWeights();
         }
@@ -1018,7 +1046,10 @@
         
         function resetWeights() {
             stopTraining();
-            weights = [Math.random() * 0.8 - 0.2, Math.random() * 2];
+            // Generate random weights with wider range to avoid parallel lines
+            // w0 (bias): from -0.3 to 0.7
+            // w1 (slope): from 0 to 2.5
+            weights = [Math.random() * 1.0 - 0.3, Math.random() * 2.5];
             epoch = 0;
             weightHistory = [[...weights]];
             draw();
@@ -1029,7 +1060,7 @@
             stopTraining();
             dataPoints = [];
             optimalWeights = null;
-            weights = [0.5, 0.5];
+            weights = [Math.random() * 1.0 - 0.3, Math.random() * 2.5];
             epoch = 0;
             weightHistory = [];
             draw();

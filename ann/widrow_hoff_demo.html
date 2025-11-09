@@ -692,7 +692,7 @@
             for (let i = 0; i <= 100; i++) {
                 const x = i / 100;
                 const y = targetFunction(x);
-                const pos = coordToCanvas(x, Math.max(0, Math.min(1, y)));
+                const pos = coordToCanvas(x, y);
 
                 if (i === 0) {
                     ctx.moveTo(pos.x, pos.y);
@@ -709,19 +709,19 @@
             ctx.strokeStyle = '#667eea';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            
+
             for (let i = 0; i <= 100; i++) {
                 const x = i / 100;
                 const y = predict(x);
-                const pos = coordToCanvas(x, Math.max(0, Math.min(1, y)));
-                
+                const pos = coordToCanvas(x, y);
+
                 if (i === 0) {
                     ctx.moveTo(pos.x, pos.y);
                 } else {
                     ctx.lineTo(pos.x, pos.y);
                 }
             }
-            
+
             ctx.stroke();
         }
         
@@ -895,20 +895,20 @@
                 loadLinear();
                 return;
             }
-            
+
             points = [];
-            
+
             for (let i = 0; i < numPoints; i++) {
                 const x = i / (numPoints - 1);
                 const y = targetFunction(x);
                 const noise = (Math.random() - 0.5) * noiseLevel;
-                
+
                 points.push({
                     x: x,
-                    y: Math.max(0, Math.min(1, y + noise))
+                    y: y + noise
                 });
             }
-            
+
             resetNetwork();
         }
         

@@ -632,6 +632,70 @@
                 };
 
                 this.gridResolution = 40;
+                this.bounds = {}; // Store bounds for each layer
+            }
+
+            computeBounds(transformedData) {
+                // Initialize bounds for each layer
+                const bounds = {
+                    input: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+                    hiddenLinear: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+                    hiddenActivated: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+                    outputLinear: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+                    output: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+                };
+
+                transformedData.forEach(point => {
+                    // Input bounds
+                    bounds.input.minX = Math.min(bounds.input.minX, point.input[0]);
+                    bounds.input.maxX = Math.max(bounds.input.maxX, point.input[0]);
+                    bounds.input.minY = Math.min(bounds.input.minY, point.input[1]);
+                    bounds.input.maxY = Math.max(bounds.input.maxY, point.input[1]);
+
+                    // Hidden linear bounds
+                    bounds.hiddenLinear.minX = Math.min(bounds.hiddenLinear.minX, point.z1[0]);
+                    bounds.hiddenLinear.maxX = Math.max(bounds.hiddenLinear.maxX, point.z1[0]);
+                    bounds.hiddenLinear.minY = Math.min(bounds.hiddenLinear.minY, point.z1[1]);
+                    bounds.hiddenLinear.maxY = Math.max(bounds.hiddenLinear.maxY, point.z1[1]);
+
+                    // Hidden activated bounds
+                    bounds.hiddenActivated.minX = Math.min(bounds.hiddenActivated.minX, point.a1[0]);
+                    bounds.hiddenActivated.maxX = Math.max(bounds.hiddenActivated.maxX, point.a1[0]);
+                    bounds.hiddenActivated.minY = Math.min(bounds.hiddenActivated.minY, point.a1[1]);
+                    bounds.hiddenActivated.maxY = Math.max(bounds.hiddenActivated.maxY, point.a1[1]);
+
+                    // Output linear bounds
+                    const avgX = (point.input[0] + point.input[1]) / 2;
+                    bounds.outputLinear.minX = Math.min(bounds.outputLinear.minX, avgX);
+                    bounds.outputLinear.maxX = Math.max(bounds.outputLinear.maxX, avgX);
+                    bounds.outputLinear.minY = Math.min(bounds.outputLinear.minY, point.z2);
+                    bounds.outputLinear.maxY = Math.max(bounds.outputLinear.maxY, point.z2);
+
+                    // Output bounds (same as input)
+                    bounds.output.minX = Math.min(bounds.output.minX, point.input[0]);
+                    bounds.output.maxX = Math.max(bounds.output.maxX, point.input[0]);
+                    bounds.output.minY = Math.min(bounds.output.minY, point.input[1]);
+                    bounds.output.maxY = Math.max(bounds.output.maxY, point.input[1]);
+                });
+
+                // Add padding (10% on each side)
+                Object.keys(bounds).forEach(layer => {
+                    const rangeX = bounds[layer].maxX - bounds[layer].minX;
+                    const rangeY = bounds[layer].maxY - bounds[layer].minY;
+                    const paddingX = rangeX * 0.1;
+                    const paddingY = rangeY * 0.1;
+
+                    bounds[layer].minX -= paddingX;
+                    bounds[layer].maxX += paddingX;
+                    bounds[layer].minY -= paddingY;
+                    bounds[layer].maxY += paddingY;
+
+                    // Calculate scale factors
+                    bounds[layer].scaleX = 400 / (bounds[layer].maxX - bounds[layer].minX);
+                    bounds[layer].scaleY = 400 / (bounds[layer].maxY - bounds[layer].minY);
+                });
+
+                return bounds;
             }
             
             clear() {
@@ -657,6 +721,9 @@
                     };
                 });
 
+                // Compute dynamic bounds for all layers
+                this.bounds = this.computeBounds(transformedData);
+
                 // Draw decision boundaries for each space
                 this.drawDecisionBoundary(this.contexts.input, nn, 'input', transformedData);
                 this.drawDecisionBoundary(this.contexts.hiddenLinear, nn, 'hiddenLinear', transformedData);
@@ -667,34 +734,33 @@
                 // Draw data points in each transformed space
                 transformedData.forEach(point => {
                     // Input space: show original coordinates
-                    this.drawPoint(this.contexts.input, point.input, point.input, point.label);
+                    this.drawPoint(this.contexts.input, 'input', point.input, point.input, point.label);
 
                     // Hidden linear: show z1 coordinates (before activation)
-                    this.drawPoint(this.contexts.hiddenLinear, point.input, point.z1, point.label);
+                    this.drawPoint(this.contexts.hiddenLinear, 'hiddenLinear', point.input, point.z1, point.label);
 
                     // Hidden activated: show a1 coordinates (after activation)
-                    this.drawPoint(this.contexts.hiddenActivated, point.input, point.a1, point.label);
+                    this.drawPoint(this.contexts.hiddenActivated, 'hiddenActivated', point.input, point.a1, point.label);
 
                     // Output linear: show z2 as 1D value (we'll map it to y-axis)
                     // For visualization, we use (x, z2) where x is average of input
                     const avgX = (point.input[0] + point.input[1]) / 2;
-                    this.drawPoint(this.contexts.outputLinear, point.input, [avgX, point.z2], point.label);
+                    this.drawPoint(this.contexts.outputLinear, 'outputLinear', point.input, [avgX, point.z2], point.label);
 
                     // Output: show back in input space, colored by prediction
-                    this.drawPoint(this.contexts.output, point.input, point.input,
+                    this.drawPoint(this.contexts.output, 'output', point.input, point.input,
                                  point.output > 0.5 ? 1 : 0, point.output);
                 });
             }
             
-            drawPoint(ctx, originalCoords, coords, label, confidence = null) {
-                // Normalize coordinates to canvas space
-                // We'll use a dynamic scale based on the coordinate range
-                const scale = 2.5; // Adjust this to zoom in/out
-                const centerX = 200;
-                const centerY = 200;
+            drawPoint(ctx, layer, originalCoords, coords, label, confidence = null) {
+                // Get bounds for this layer
+                const bounds = this.bounds[layer];
+                if (!bounds) return;
 
-                const x = centerX + coords[0] * (200 / scale);
-                const y = centerY - coords[1] * (200 / scale);
+                // Map coordinates to canvas space using layer-specific bounds
+                const x = (coords[0] - bounds.minX) * bounds.scaleX;
+                const y = 400 - (coords[1] - bounds.minY) * bounds.scaleY;
 
                 // Skip if out of bounds
                 if (x < 0 || x > 400 || y < 0 || y > 400) return;
@@ -717,24 +783,27 @@
             
             drawDecisionBoundary(ctx, nn, layer, transformedData) {
                 const imageData = ctx.createImageData(400, 400);
-                const scale = 2.5;
+                const bounds = this.bounds[layer];
+                if (!bounds) return;
 
                 for (let px = 0; px < 400; px++) {
                     for (let py = 0; py < 400; py++) {
                         let value;
 
+                        // Convert pixel coordinates to data coordinates using bounds
+                        const dataX = bounds.minX + (px / bounds.scaleX);
+                        const dataY = bounds.maxY - (py / bounds.scaleY);
+
                         if (layer === 'input' || layer === 'output') {
                             // For input/output: use original coordinate space
-                            const x1 = ((px - 200) / (200 / scale));
-                            const x2 = (-(py - 200) / (200 / scale));
-                            nn.forward([x1, x2]);
+                            nn.forward([dataX, dataY]);
                             value = nn.output;
 
                         } else if (layer === 'hiddenLinear') {
                             // For hidden linear: interpret pixel as (z1, z2) coordinates
                             // and compute what the output layer would predict
-                            const z1 = ((px - 200) / (200 / scale));
-                            const z2 = (-(py - 200) / (200 / scale));
+                            const z1 = dataX;
+                            const z2 = dataY;
 
                             // Apply activation to get a1
                             const a1 = [nn.activate(z1), nn.activate(z2)];
@@ -748,8 +817,8 @@
 
                         } else if (layer === 'hiddenActivated') {
                             // For hidden activated: interpret pixel as (a1[0], a1[1]) coordinates
-                            const a1_0 = ((px - 200) / (200 / scale));
-                            const a1_1 = (-(py - 200) / (200 / scale));
+                            const a1_0 = dataX;
+                            const a1_1 = dataY;
 
                             // Compute output from these activations
                             let z2_out = nn.b2[0][0];
@@ -760,8 +829,8 @@
                         } else if (layer === 'outputLinear') {
                             // For output linear: interpret pixel as (avgX, z2) coordinates
                             // We show z2 value on y-axis, avgX on x-axis
-                            const avgX = ((px - 200) / (200 / scale));
-                            const z2_val = (-(py - 200) / (200 / scale));
+                            const avgX = dataX;
+                            const z2_val = dataY;
 
                             // Decision boundary is at z2 = 0 (which gives sigmoid(0) = 0.5)
                             // Color based on z2 value
@@ -786,46 +855,65 @@
 
                 ctx.putImageData(imageData, 0, 0);
 
-                // Draw grid and axes
+                // Draw grid and axes with dynamic bounds
                 ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
                 ctx.lineWidth = 1;
 
-                // Center lines (axes)
-                ctx.beginPath();
-                ctx.moveTo(200, 0);
-                ctx.lineTo(200, 400);
-                ctx.moveTo(0, 200);
-                ctx.lineTo(400, 200);
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                // Calculate where zero axes should be (if in view)
+                const zeroX = (0 - bounds.minX) * bounds.scaleX;
+                const zeroY = 400 - (0 - bounds.minY) * bounds.scaleY;
+
+                // Draw zero axes if they're in view
+                if (zeroX >= 0 && zeroX <= 400) {
+                    ctx.beginPath();
+                    ctx.moveTo(zeroX, 0);
+                    ctx.lineTo(zeroX, 400);
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                if (zeroY >= 0 && zeroY <= 400) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, zeroY);
+                    ctx.lineTo(400, zeroY);
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
 
                 // Grid lines
                 ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
                 ctx.lineWidth = 1;
-                for (let i = 1; i <= 4; i++) {
-                    const pos1 = 200 - i * 50;
-                    const pos2 = 200 + i * 50;
 
-                    ctx.beginPath();
-                    ctx.moveTo(pos1, 0);
-                    ctx.lineTo(pos1, 400);
-                    ctx.stroke();
+                // Calculate grid spacing based on data range
+                const rangeX = bounds.maxX - bounds.minX;
+                const rangeY = bounds.maxY - bounds.minY;
+                const gridSpacingX = Math.pow(10, Math.floor(Math.log10(rangeX / 4)));
+                const gridSpacingY = Math.pow(10, Math.floor(Math.log10(rangeY / 4)));
 
-                    ctx.beginPath();
-                    ctx.moveTo(pos2, 0);
-                    ctx.lineTo(pos2, 400);
-                    ctx.stroke();
+                // Vertical grid lines
+                const startGridX = Math.ceil(bounds.minX / gridSpacingX) * gridSpacingX;
+                for (let gridX = startGridX; gridX <= bounds.maxX; gridX += gridSpacingX) {
+                    const px = (gridX - bounds.minX) * bounds.scaleX;
+                    if (px >= 0 && px <= 400) {
+                        ctx.beginPath();
+                        ctx.moveTo(px, 0);
+                        ctx.lineTo(px, 400);
+                        ctx.stroke();
+                    }
+                }
 
-                    ctx.beginPath();
-                    ctx.moveTo(0, pos1);
-                    ctx.lineTo(400, pos1);
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.moveTo(0, pos2);
-                    ctx.lineTo(400, pos2);
-                    ctx.stroke();
+                // Horizontal grid lines
+                const startGridY = Math.ceil(bounds.minY / gridSpacingY) * gridSpacingY;
+                for (let gridY = startGridY; gridY <= bounds.maxY; gridY += gridSpacingY) {
+                    const py = 400 - (gridY - bounds.minY) * bounds.scaleY;
+                    if (py >= 0 && py <= 400) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, py);
+                        ctx.lineTo(400, py);
+                        ctx.stroke();
+                    }
                 }
             }
         }

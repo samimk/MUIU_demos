@@ -312,7 +312,7 @@
 
                     <div class="control-group">
                         <label for="hiddenNeurons">Broj neurona u skrivenom sloju:</label>
-                        <input type="range" id="hiddenNeurons" min="1" max="20" value="5">
+                        <input type="range" id="hiddenNeurons" min="1" max="100" value="5">
                         <div class="value-display" id="hiddenNeuronsValue">5</div>
                     </div>
 
@@ -361,6 +361,12 @@
                         <input type="range" id="testRatio" min="10" max="50" step="5" value="20">
                         <div class="value-display" id="testRatioValue">20</div>
                     </div>
+
+                    <div class="control-group">
+                        <label for="numDataPoints">Broj tačaka podataka:</label>
+                        <input type="range" id="numDataPoints" min="20" max="200" step="10" value="80">
+                        <div class="value-display" id="numDataPointsValue">80</div>
+                    </div>
                 </div>
 
                 <div class="control-section">
@@ -407,6 +413,7 @@
         let maxEpochs = 1000;
         let noiseLevel = 0.1;
         let testRatio = 0.2;
+        let numDataPoints = 80;
 
         // Neural Network Class
         class NeuralNetwork {
@@ -607,6 +614,11 @@
             document.getElementById('testRatioValue').textContent = testRatio;
         });
 
+        document.getElementById('numDataPoints').addEventListener('input', function() {
+            numDataPoints = parseInt(this.value);
+            document.getElementById('numDataPointsValue').textContent = numDataPoints;
+        });
+
         // Predefined functions
         function loadSineFunction() {
             generateDataFromFunction((x) => 0.5 + 0.4 * Math.sin(4 * Math.PI * x));
@@ -636,18 +648,17 @@
             trainingData = [];
             testData = [];
 
-            const numPoints = 80;
             const allData = [];
 
-            for (let i = 0; i < numPoints; i++) {
-                const x = i / (numPoints - 1);
+            for (let i = 0; i < numDataPoints; i++) {
+                const x = i / (numDataPoints - 1);
                 const y = func(x) + (Math.random() - 0.5) * noiseLevel;
                 allData.push({x: x, y: Math.max(0, Math.min(1, y))});
             }
 
             // Split into training and test data
-            const testSize = Math.floor(numPoints * testRatio / 100);
-            const indices = Array.from({length: numPoints}, (_, i) => i);
+            const testSize = Math.floor(numDataPoints * testRatio / 100);
+            const indices = Array.from({length: numDataPoints}, (_, i) => i);
 
             // Shuffle indices
             for (let i = indices.length - 1; i > 0; i--) {
@@ -659,7 +670,7 @@
                 testData.push(allData[indices[i]]);
             }
 
-            for (let i = testSize; i < numPoints; i++) {
+            for (let i = testSize; i < numDataPoints; i++) {
                 trainingData.push(allData[indices[i]]);
             }
 

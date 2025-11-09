@@ -607,9 +607,12 @@
                     const midX = (positions.input[i].x + positions.hidden[j].x) / 2;
                     const midY = (positions.input[i].y + positions.hidden[j].y) / 2;
                     ctx.globalAlpha = 1;
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(midX - 18, midY - 10, 36, 16);
                     ctx.fillStyle = '#333';
                     ctx.font = 'bold 11px Arial';
-                    ctx.fillText(weight.toFixed(2), midX, midY);
+                    ctx.textAlign = 'center';
+                    ctx.fillText(weight.toFixed(2), midX, midY + 4);
                 }
             }
             
@@ -642,9 +645,12 @@
                 const midX = (positions.hidden[i].x + positions.output[0].x) / 2;
                 const midY = (positions.hidden[i].y + positions.output[0].y) / 2;
                 ctx.globalAlpha = 1;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(midX - 18, midY - 10, 36, 16);
                 ctx.fillStyle = '#333';
                 ctx.font = 'bold 11px Arial';
-                ctx.fillText(weight.toFixed(2), midX, midY);
+                ctx.textAlign = 'center';
+                ctx.fillText(weight.toFixed(2), midX, midY + 4);
             }
             
             ctx.globalAlpha = 1;
@@ -672,10 +678,15 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(`h${i+1}`, pos.x, pos.y + 5);
                 
+                // Display bias below neuron
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 10px Arial';
+                ctx.fillText(`b=${nn.b1[i].toFixed(2)}`, pos.x, pos.y + 65);
+                
                 if (nn.a1) {
-                    ctx.fillStyle = '#333';
-                    ctx.font = '10px Arial';
-                    ctx.fillText(value.toFixed(3), pos.x, pos.y + 55);
+                    ctx.fillStyle = '#667eea';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.fillText(`a=${value.toFixed(2)}`, pos.x, pos.y - 50);
                 }
             });
             
@@ -690,10 +701,15 @@
             ctx.textAlign = 'center';
             ctx.fillText('y', positions.output[0].x, positions.output[0].y + 5);
             
+            // Display bias below output neuron
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 10px Arial';
+            ctx.fillText(`b=${nn.b2.toFixed(2)}`, positions.output[0].x, positions.output[0].y + 65);
+            
             if (nn.output !== null) {
-                ctx.fillStyle = '#333';
-                ctx.font = '11px Arial';
-                ctx.fillText(outputValue.toFixed(3), positions.output[0].x, positions.output[0].y + 55);
+                ctx.fillStyle = '#667eea';
+                ctx.font = 'bold 11px Arial';
+                ctx.fillText(`y=${outputValue.toFixed(2)}`, positions.output[0].x, positions.output[0].y - 50);
             }
         }
         
@@ -761,17 +777,17 @@
                 html += '<div class="calc-step"><strong>Skriveni sloj:</strong></div>';
                 for (let i = 0; i < 3; i++) {
                     html += `<div class="calc-step">
-                        z₁[${i+1}] = ${nn.b1[i].toFixed(3)} + ${nn.W1[i][0].toFixed(3)}×${nn.input[0].toFixed(2)} + ${nn.W1[i][1].toFixed(3)}×${nn.input[1].toFixed(2)}<br>
-                        z₁[${i+1}] = <span class="highlight-value">${nn.z1[i].toFixed(3)}</span><br>
-                        a₁[${i+1}] = sigmoid(${nn.z1[i].toFixed(3)}) = <span class="highlight-value">${nn.a1[i].toFixed(3)}</span>
+                        z₁[${i+1}] = ${nn.b1[i].toFixed(2)} + ${nn.W1[i][0].toFixed(2)}×${nn.input[0].toFixed(2)} + ${nn.W1[i][1].toFixed(2)}×${nn.input[1].toFixed(2)}<br>
+                        z₁[${i+1}] = <span class="highlight-value">${nn.z1[i].toFixed(2)}</span><br>
+                        a₁[${i+1}] = sigmoid(${nn.z1[i].toFixed(2)}) = <span class="highlight-value">${nn.a1[i].toFixed(2)}</span>
                     </div>`;
                 }
                 
                 html += '<div class="calc-step"><strong>Izlazni sloj:</strong></div>';
                 html += `<div class="calc-step">
-                    z₂ = ${nn.b2.toFixed(3)} + ${nn.W2[0].toFixed(3)}×${nn.a1[0].toFixed(3)} + ${nn.W2[1].toFixed(3)}×${nn.a1[1].toFixed(3)} + ${nn.W2[2].toFixed(3)}×${nn.a1[2].toFixed(3)}<br>
-                    z₂ = <span class="highlight-value">${nn.z2.toFixed(3)}</span><br>
-                    y = sigmoid(${nn.z2.toFixed(3)}) = <span class="highlight-value">${nn.output.toFixed(3)}</span>
+                    z₂ = ${nn.b2.toFixed(2)} + ${nn.W2[0].toFixed(2)}×${nn.a1[0].toFixed(2)} + ${nn.W2[1].toFixed(2)}×${nn.a1[1].toFixed(2)} + ${nn.W2[2].toFixed(2)}×${nn.a1[2].toFixed(2)}<br>
+                    z₂ = <span class="highlight-value">${nn.z2.toFixed(2)}</span><br>
+                    y = sigmoid(${nn.z2.toFixed(2)}) = <span class="highlight-value">${nn.output.toFixed(2)}</span>
                 </div>`;
                 
                 calculationHistory += html;
@@ -785,29 +801,37 @@
                 
                 html += '<div class="calc-step"><strong>Izlazni sloj - greška:</strong></div>';
                 html += `<div class="calc-step">
-                    e = y - t = ${nn.output.toFixed(3)} - ${target.toFixed(2)} = <span class="error-value">${error.toFixed(3)}</span><br>
-                    δ₂ = e × σ'(z₂) = ${error.toFixed(3)} × ${nn.sigmoidDerivative(nn.z2).toFixed(3)}<br>
-                    δ₂ = <span class="error-value">${nn.delta2.toFixed(3)}</span>
+                    e = y - t = ${nn.output.toFixed(2)} - ${target.toFixed(2)} = <span class="error-value">${error.toFixed(2)}</span><br>
+                    δ₂ = e × σ'(z₂) = ${error.toFixed(2)} × ${nn.sigmoidDerivative(nn.z2).toFixed(2)}<br>
+                    δ₂ = <span class="error-value">${nn.delta2.toFixed(2)}</span>
                 </div>`;
                 
                 html += '<div class="calc-step"><strong>Gradijenti izlaznog sloja:</strong></div>';
                 for (let i = 0; i < 3; i++) {
                     html += `<div class="calc-step">
-                        ∂J/∂w₂[${i+1}] = δ₂ × a₁[${i+1}] = ${nn.delta2.toFixed(3)} × ${nn.a1[i].toFixed(3)} = <span class="error-value">${nn.dW2[i].toFixed(3)}</span>
+                        ∂J/∂w₂[${i+1}] = δ₂ × a₁[${i+1}] = ${nn.delta2.toFixed(2)} × ${nn.a1[i].toFixed(2)} = <span class="error-value">${nn.dW2[i].toFixed(2)}</span>
                     </div>`;
                 }
                 html += `<div class="calc-step">
-                    ∂J/∂b₂ = δ₂ = <span class="error-value">${nn.db2.toFixed(3)}</span>
+                    ∂J/∂b₂ = δ₂ = <span class="error-value">${nn.db2.toFixed(2)}</span>
                 </div>`;
                 
                 html += '<div class="calc-step"><strong>Skriveni sloj - greška (propagirana):</strong></div>';
                 for (let i = 0; i < 3; i++) {
                     html += `<div class="calc-step">
                         δ₁[${i+1}] = w₂[${i+1}] × δ₂ × σ'(z₁[${i+1}])<br>
-                        δ₁[${i+1}] = ${nn.W2[i].toFixed(3)} × ${nn.delta2.toFixed(3)} × ${nn.sigmoidDerivative(nn.z1[i]).toFixed(3)}<br>
-                        δ₁[${i+1}] = <span class="error-value">${nn.delta1[i].toFixed(3)}</span>
+                        δ₁[${i+1}] = ${nn.W2[i].toFixed(2)} × ${nn.delta2.toFixed(2)} × ${nn.sigmoidDerivative(nn.z1[i]).toFixed(2)}<br>
+                        δ₁[${i+1}] = <span class="error-value">${nn.delta1[i].toFixed(2)}</span>
                     </div>`;
                 }
+                
+                html += '<div class="calc-step"><strong>Gradijenti skrivenog sloja (primjeri):</strong></div>';
+                for (let i = 0; i < 2; i++) {
+                    html += `<div class="calc-step">
+                        ∂J/∂w₁[${i+1},1] = δ₁[${i+1}] × x₁ = ${nn.delta1[i].toFixed(2)} × ${nn.input[0].toFixed(2)} = <span class="error-value">${nn.dW1[i][0].toFixed(2)}</span>
+                    </div>`;
+                }
+                html += '<div class="calc-step">(...i ostali gradijenti)</div>';
                 
                 calculationHistory += html;
                 
@@ -821,19 +845,27 @@
                 for (let i = 0; i < 3; i++) {
                     const oldW = nn.W2[i] + lr * nn.dW2[i];
                     html += `<div class="calc-step">
-                        w₂[${i+1}]_novo = ${oldW.toFixed(3)} - ${lr} × ${nn.dW2[i].toFixed(3)}<br>
-                        w₂[${i+1}]_novo = <span class="weight-update">${nn.W2[i].toFixed(3)}</span>
+                        w₂[${i+1}]_novo = ${oldW.toFixed(2)} - ${lr.toFixed(2)} × ${nn.dW2[i].toFixed(2)}<br>
+                        w₂[${i+1}]_novo = <span class="weight-update">${nn.W2[i].toFixed(2)}</span>
                     </div>`;
                 }
+                html += `<div class="calc-step">
+                    b₂_novo = ${(nn.b2 + lr * nn.db2).toFixed(2)} - ${lr.toFixed(2)} × ${nn.db2.toFixed(2)}<br>
+                    b₂_novo = <span class="weight-update">${nn.b2.toFixed(2)}</span>
+                </div>`;
                 
                 html += '<div class="calc-step"><strong>Skriveni sloj (primjeri):</strong></div>';
                 for (let i = 0; i < 2; i++) {
                     const oldW = nn.W1[i][0] + lr * nn.dW1[i][0];
                     html += `<div class="calc-step">
-                        w₁[${i+1},1]_novo = ${oldW.toFixed(3)} - ${lr} × ${nn.dW1[i][0].toFixed(3)} = <span class="weight-update">${nn.W1[i][0].toFixed(3)}</span>
+                        w₁[${i+1},1]_novo = ${oldW.toFixed(2)} - ${lr.toFixed(2)} × ${nn.dW1[i][0].toFixed(2)} = <span class="weight-update">${nn.W1[i][0].toFixed(2)}</span>
                     </div>`;
                 }
-                html += '<div class="calc-step">(...i ostale težine)</div>';
+                const oldB = nn.b1[0] + lr * nn.db1[0];
+                html += `<div class="calc-step">
+                    b₁[1]_novo = ${oldB.toFixed(2)} - ${lr.toFixed(2)} × ${nn.db1[0].toFixed(2)} = <span class="weight-update">${nn.b1[0].toFixed(2)}</span>
+                </div>`;
+                html += '<div class="calc-step">(...i ostale težine i pomaci)</div>';
                 
                 calculationHistory += html;
             }
@@ -875,9 +907,9 @@
                 const error = nn.output - target;
                 const mse = error * error;
                 
-                document.getElementById('outputValue').textContent = nn.output.toFixed(4);
-                document.getElementById('errorValue').textContent = error.toFixed(4);
-                document.getElementById('mseValue').textContent = mse.toFixed(4);
+                document.getElementById('outputValue').textContent = nn.output.toFixed(2);
+                document.getElementById('errorValue').textContent = error.toFixed(2);
+                document.getElementById('mseValue').textContent = mse.toFixed(2);
             } else {
                 document.getElementById('outputValue').textContent = '-';
                 document.getElementById('errorValue').textContent = '-';

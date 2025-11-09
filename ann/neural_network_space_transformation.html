@@ -189,24 +189,16 @@
             border: 2px solid #333;
         }
         
-        footer {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .footer {
+            background: #343a40;
             color: white;
             text-align: center;
-            padding: 15px;
-            margin-top: 30px;
-            border-radius: 0 0 20px 20px;
+            padding: 20px;
             font-size: 14px;
         }
-        
-        footer a {
-            color: #fff;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        
-        footer a:hover {
-            text-decoration: underline;
+
+        .footer p {
+            margin: 5px 0;
         }
     </style>
 </head>
@@ -269,38 +261,38 @@
                 <div class="info-box" style="margin-top: 10px;">
                     <h4>🎯 Šta vidite:</h4>
                     <p>
-                        <strong>Input Space:</strong> Originalni podaci<br>
-                        <strong>Hidden Layer:</strong> Linearno transformisan prostor<br>
-                        <strong>After Activation:</strong> Nelinearno "savijena" reprezentacija<br>
-                        <strong>Output:</strong> Finalna klasifikacija
+                        <strong>Input Space:</strong> Originalni (x₁, x₂) prostor sa decision boundary<br>
+                        <strong>After Layer 1:</strong> Tačke transformisane u (z₁, z₂) prostor preko W₁x + b₁<br>
+                        <strong>After Activation:</strong> (a₁, a₂) = σ(z₁, z₂) - nelinearna transformacija<br>
+                        <strong>Output:</strong> Finalna klasifikacija u originalnom prostoru
                     </p>
                 </div>
             </div>
             
             <div class="visualization">
                 <div class="layer-row">
-                    <div class="layer-label">Input Space (x₁, x₂)</div>
+                    <div class="layer-label">Input Space<br>(x₁, x₂)</div>
                     <div class="canvas-container">
                         <canvas id="inputCanvas" width="400" height="400"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="layer-row">
-                    <div class="layer-label">After Layer 1 (Linear)</div>
+                    <div class="layer-label">Hidden Space - Linear<br>(z₁, z₂)</div>
                     <div class="canvas-container">
                         <canvas id="hiddenLinearCanvas" width="400" height="400"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="layer-row">
-                    <div class="layer-label">After Activation</div>
+                    <div class="layer-label">Hidden Space - Activated<br>(a₁, a₂)</div>
                     <div class="canvas-container">
                         <canvas id="hiddenActivatedCanvas" width="400" height="400"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="layer-row">
-                    <div class="layer-label">Output (Classification)</div>
+                    <div class="layer-label">Output Space<br>(klasifikacija)</div>
                     <div class="canvas-container">
                         <canvas id="outputCanvas" width="400" height="400"></canvas>
                     </div>
@@ -322,9 +314,10 @@
             </div>
         </div>
         
-        <footer>
-            Mašinsko učenje i inteligentno upravljanje | Red. prof. dr Samim Konjicija | 2025
-        </footer>
+        <div class="footer">
+            <p><strong>Mašinsko učenje i inteligentno upravljanje</strong></p>
+            <p>Red. prof. dr Samim Konjicija, 2025.</p>
+        </div>
     </div>
 
     <script>
@@ -536,76 +529,118 @@
             
             drawData(data, nn) {
                 this.clear();
-                
-                // Draw decision boundaries first
-                this.drawDecisionBoundary(this.contexts.input, nn, 'input');
-                this.drawDecisionBoundary(this.contexts.hiddenLinear, nn, 'hiddenLinear');
-                this.drawDecisionBoundary(this.contexts.hiddenActivated, nn, 'hiddenActivated');
-                this.drawDecisionBoundary(this.contexts.output, nn, 'output');
-                
-                // Draw data points
-                data.forEach(point => {
-                    this.drawPoint(this.contexts.input, point.x, point.x, point.y);
-                    
+
+                // First, compute all transformations for all points
+                const transformedData = data.map(point => {
                     nn.forward(point.x);
-                    
-                    // For hidden layer visualizations, we need to project to 2D
-                    if (nn.hiddenSize >= 2) {
-                        const hiddenLinear = [nn.z1[0], nn.z1[1]];
-                        const hiddenActivated = [nn.a1[0], nn.a1[1]];
-                        
-                        this.drawPoint(this.contexts.hiddenLinear, point.x, hiddenLinear, point.y);
-                        this.drawPoint(this.contexts.hiddenActivated, point.x, hiddenActivated, point.y);
-                    }
-                    
-                    this.drawPoint(this.contexts.output, point.x, point.x, nn.output > 0.5 ? 1 : 0, nn.output);
+                    return {
+                        input: point.x,
+                        label: point.y,
+                        z1: nn.hiddenSize >= 2 ? [nn.z1[0], nn.z1[1]] : [nn.z1[0], 0],
+                        a1: nn.hiddenSize >= 2 ? [nn.a1[0], nn.a1[1]] : [nn.a1[0], 0],
+                        output: nn.output
+                    };
+                });
+
+                // Draw decision boundaries for each space
+                this.drawDecisionBoundary(this.contexts.input, nn, 'input', transformedData);
+                this.drawDecisionBoundary(this.contexts.hiddenLinear, nn, 'hiddenLinear', transformedData);
+                this.drawDecisionBoundary(this.contexts.hiddenActivated, nn, 'hiddenActivated', transformedData);
+                this.drawDecisionBoundary(this.contexts.output, nn, 'output', transformedData);
+
+                // Draw data points in each transformed space
+                transformedData.forEach(point => {
+                    // Input space: show original coordinates
+                    this.drawPoint(this.contexts.input, point.input, point.input, point.label);
+
+                    // Hidden linear: show z1 coordinates (before activation)
+                    this.drawPoint(this.contexts.hiddenLinear, point.input, point.z1, point.label);
+
+                    // Hidden activated: show a1 coordinates (after activation)
+                    this.drawPoint(this.contexts.hiddenActivated, point.input, point.a1, point.label);
+
+                    // Output: show back in input space, colored by prediction
+                    this.drawPoint(this.contexts.output, point.input, point.input,
+                                 point.output > 0.5 ? 1 : 0, point.output);
                 });
             }
             
             drawPoint(ctx, originalCoords, coords, label, confidence = null) {
-                const x = (coords[0] + 1) * 200;
-                const y = (1 - coords[1]) * 200;
-                
+                // Normalize coordinates to canvas space
+                // We'll use a dynamic scale based on the coordinate range
+                const scale = 2.5; // Adjust this to zoom in/out
+                const centerX = 200;
+                const centerY = 200;
+
+                const x = centerX + coords[0] * (200 / scale);
+                const y = centerY - coords[1] * (200 / scale);
+
+                // Skip if out of bounds
+                if (x < 0 || x > 400 || y < 0 || y > 400) return;
+
                 // Calculate size based on confidence if provided
-                let size = 4;
+                let size = 5;
                 if (confidence !== null) {
-                    // Confidence ranges from 0 to 1, we want size from 3 to 7
-                    const certainty = Math.abs(confidence - 0.5) * 2; // 0 (uncertain) to 1 (certain)
+                    const certainty = Math.abs(confidence - 0.5) * 2;
                     size = 3 + certainty * 4;
                 }
-                
+
                 ctx.beginPath();
                 ctx.arc(x, y, size, 0, Math.PI * 2);
                 ctx.fillStyle = label === 1 ? 'rgba(100, 100, 255, 0.8)' : 'rgba(255, 100, 100, 0.8)';
                 ctx.fill();
                 ctx.strokeStyle = 'white';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
             }
             
-            drawDecisionBoundary(ctx, nn, layer) {
-                const resolution = this.gridResolution;
+            drawDecisionBoundary(ctx, nn, layer, transformedData) {
                 const imageData = ctx.createImageData(400, 400);
-                
+                const scale = 2.5;
+
                 for (let px = 0; px < 400; px++) {
                     for (let py = 0; py < 400; py++) {
-                        const x1 = (px / 200) - 1;
-                        const x2 = 1 - (py / 200);
-                        
-                        nn.forward([x1, x2]);
-                        
                         let value;
-                        if (layer === 'input') {
+
+                        if (layer === 'input' || layer === 'output') {
+                            // For input/output: use original coordinate space
+                            const x1 = ((px - 200) / (200 / scale));
+                            const x2 = (-(py - 200) / (200 / scale));
+                            nn.forward([x1, x2]);
                             value = nn.output;
-                        } else if (layer === 'hiddenLinear' && nn.hiddenSize >= 2) {
-                            // Project back to input space approximation
-                            value = nn.output;
-                        } else if (layer === 'hiddenActivated' && nn.hiddenSize >= 2) {
-                            value = nn.output;
+
+                        } else if (layer === 'hiddenLinear') {
+                            // For hidden linear: interpret pixel as (z1, z2) coordinates
+                            // and compute what the output layer would predict
+                            const z1 = ((px - 200) / (200 / scale));
+                            const z2 = (-(py - 200) / (200 / scale));
+
+                            // Apply activation to get a1
+                            const a1 = [nn.activate(z1), nn.activate(z2)];
+
+                            // Compute output from hidden activation
+                            let z2_out = nn.b2[0][0];
+                            for (let j = 0; j < Math.min(2, nn.hiddenSize); j++) {
+                                z2_out += nn.W2[0][j] * a1[j];
+                            }
+                            value = 1 / (1 + Math.exp(-z2_out));
+
+                        } else if (layer === 'hiddenActivated') {
+                            // For hidden activated: interpret pixel as (a1[0], a1[1]) coordinates
+                            const a1_0 = ((px - 200) / (200 / scale));
+                            const a1_1 = (-(py - 200) / (200 / scale));
+
+                            // Compute output from these activations
+                            let z2_out = nn.b2[0][0];
+                            z2_out += nn.W2[0][0] * a1_0;
+                            if (nn.hiddenSize >= 2) {
+                                z2_out += nn.W2[0][1] * a1_1;
+                            }
+                            value = 1 / (1 + Math.exp(-z2_out));
                         } else {
-                            value = nn.output;
+                            value = 0.5;
                         }
-                        
+
                         const idx = (py * 400 + px) * 4;
                         if (value > 0.5) {
                             imageData.data[idx] = 150;
@@ -616,24 +651,51 @@
                             imageData.data[idx + 1] = 150;
                             imageData.data[idx + 2] = 150;
                         }
-                        imageData.data[idx + 3] = 30; // Alpha
+                        imageData.data[idx + 3] = 30;
                     }
                 }
-                
+
                 ctx.putImageData(imageData, 0, 0);
-                
-                // Draw grid
-                ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+
+                // Draw grid and axes
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
                 ctx.lineWidth = 1;
-                for (let i = 0; i <= 4; i++) {
-                    const pos = i * 100;
+
+                // Center lines (axes)
+                ctx.beginPath();
+                ctx.moveTo(200, 0);
+                ctx.lineTo(200, 400);
+                ctx.moveTo(0, 200);
+                ctx.lineTo(400, 200);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Grid lines
+                ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
+                ctx.lineWidth = 1;
+                for (let i = 1; i <= 4; i++) {
+                    const pos1 = 200 - i * 50;
+                    const pos2 = 200 + i * 50;
+
                     ctx.beginPath();
-                    ctx.moveTo(pos, 0);
-                    ctx.lineTo(pos, 400);
+                    ctx.moveTo(pos1, 0);
+                    ctx.lineTo(pos1, 400);
                     ctx.stroke();
+
                     ctx.beginPath();
-                    ctx.moveTo(0, pos);
-                    ctx.lineTo(400, pos);
+                    ctx.moveTo(pos2, 0);
+                    ctx.lineTo(pos2, 400);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, pos1);
+                    ctx.lineTo(400, pos1);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, pos2);
+                    ctx.lineTo(400, pos2);
                     ctx.stroke();
                 }
             }

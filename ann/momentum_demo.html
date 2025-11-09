@@ -213,23 +213,22 @@
 <body>
     <div class="container">
         <h1>🎢 Gradijentni Spust sa Momentumom</h1>
-        <p class="subtitle">Interaktivna vizualizacija optimizacije multimodalnih funkcija</p>
+        <p class="subtitle">Interaktivna vizualizacija optimizacije funkcija jedne varijable</p>
 
         <div class="content">
             <div class="canvas-container">
-                <canvas id="canvas" width="800" height="800"></canvas>
+                <canvas id="canvas" width="800" height="600"></canvas>
             </div>
 
             <div class="controls">
                 <div class="control-group">
                     <label>Funkcija</label>
                     <select id="functionSelect">
-                        <option value="rastrigin">Rastrigin (mnogo lokalnih minimuma)</option>
+                        <option value="multimodal">Multimodalna (5 lokalnih minimuma)</option>
+                        <option value="rastrigin">Rastrigin (periodični minimumi)</option>
                         <option value="ackley">Ackley (mnogo plitkih minimuma)</option>
-                        <option value="himmelblau">Himmelblau (4 lokalna minimuma)</option>
-                        <option value="eggholder">Eggholder (veoma složena)</option>
-                        <option value="peaks">Multiple Peaks (6 minimuma)</option>
-                        <option value="schaffer">Schaffer N2 (koncentrični krugovi)</option>
+                        <option value="sincos">Sin/Cos kombinacija</option>
+                        <option value="bumpy">Bumpy funkcija (nepravilni minimumi)</option>
                     </select>
                 </div>
 
@@ -260,49 +259,45 @@
                 <div class="button-group">
                     <button class="btn-start" id="startBtn">▶ Start</button>
                     <button class="btn-stop" id="stopBtn" disabled>⏸ Stop</button>
+                </div>
+                <div class="button-group">
+                    <button class="btn-start" id="stepBtn">⏩ Korak</button>
                     <button class="btn-reset" id="resetBtn">↻ Reset</button>
                 </div>
 
                 <div class="info-panel">
                     <h3>📊 Statistika</h3>
                     <p><strong>Iteracija:</strong> <span id="iterationCount">0</span></p>
-                    <p><strong>Pozicija:</strong> (<span id="posX">0</span>, <span id="posY">0</span>)</p>
+                    <p><strong>Pozicija (x):</strong> <span id="posX">0</span></p>
                     <p><strong>Vrijednost funkcije:</strong> <span id="funcValue">0</span></p>
+                    <p><strong>Gradijent:</strong> <span id="gradientMag">0</span></p>
                     <p><strong>Brzina:</strong> <span id="velocityMag">0</span></p>
                 </div>
 
                 <div class="legend">
                     <h3>🎨 Legenda</h3>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #ff4444;"></div>
-                        <span>Visoke vrijednosti</span>
+                        <div class="legend-color" style="background: #2563eb;"></div>
+                        <span>Grafik funkcije</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #ffaa00;"></div>
-                        <span>Srednje vrijednosti</span>
+                        <div class="legend-color" style="background: #f59e0b; border: 2px solid white;"></div>
+                        <span>Trenutna pozicija</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #00aa00;"></div>
-                        <span>Niske vrijednosti</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #0066ff; border: 2px solid white;"></div>
-                        <span>Loptica (trenutna pozicija)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: rgba(255,255,255,0.5);"></div>
-                        <span>Putanja</span>
+                        <div class="legend-color" style="background: rgba(220,38,38,0.6);"></div>
+                        <span>Putanja optimizacije</span>
                     </div>
                 </div>
 
                 <div class="instructions">
                     <strong>Kako koristiti:</strong><br>
                     1. Odaberite funkciju za optimizaciju<br>
-                    2. Kliknite na canvas da postavite početnu tačku<br>
-                    3. Podesite momentum i brzinu učenja<br>
-                    4. Kliknite Start da pokrenete gradijentni spust<br>
+                    2. Kliknite na grafik da postavite početnu tačku<br>
+                    3. Podesite momentum (0 = bez momentuma) i brzinu učenja<br>
+                    4. Koristite "Start" za automatsko izvršavanje ili "Korak" za izvršavanje korak po korak<br>
                     <br>
-                    <strong>Napomena:</strong> Momentum pomaže da se prođe preko plitkih lokalnih minimuma!
+                    <strong>Napomena:</strong> Bez momentuma, pretraživanje se zaustavlja u lokalnom minimumu. Sa momentumom, može proći preko plitkih lokalnih minimuma!
                 </div>
             </div>
         </div>
@@ -313,283 +308,314 @@
         const ctx = canvas.getContext('2d');
 
         // State
-        let position = { x: 0, y: 0 };
-        let velocity = { x: 0, y: 0 };
+        let position = 0;  // Only x position now
+        let velocity = 0;  // Only x velocity now
         let isRunning = false;
         let iteration = 0;
         let path = [];
         let animationId = null;
-        let currentFunction = 'rastrigin';
+        let currentFunction = 'multimodal';
         let momentum = 0;
         let learningRate = 0.01;
         let speed = 3;
+        let lastGradient = 0;
 
         // Domain ranges for different functions
         const domains = {
-            rastrigin: { min: -5.12, max: 5.12 },
+            multimodal: { min: -10, max: 10 },
+            rastrigin: { min: -5, max: 5 },
             ackley: { min: -5, max: 5 },
-            himmelblau: { min: -5, max: 5 },
-            eggholder: { min: -512, max: 512 },
-            peaks: { min: -3, max: 3 },
-            schaffer: { min: -10, max: 10 }
+            sincos: { min: -10, max: 10 },
+            bumpy: { min: -8, max: 8 }
         };
 
-        // Test functions
+        // Test functions (1D)
         const functions = {
-            rastrigin: (x, y) => {
+            multimodal: (x) => {
+                // Function with multiple local minima
+                return 0.5 * x * Math.sin(x) + 0.1 * x * x +
+                       2 * Math.sin(2 * x) + Math.cos(3 * x);
+            },
+
+            rastrigin: (x) => {
                 const A = 10;
-                return A * 2 + (x*x - A * Math.cos(2 * Math.PI * x)) +
-                       (y*y - A * Math.cos(2 * Math.PI * y));
+                return A + x*x - A * Math.cos(2 * Math.PI * x);
             },
 
-            ackley: (x, y) => {
+            ackley: (x) => {
                 const a = 20, b = 0.2, c = 2 * Math.PI;
-                return -a * Math.exp(-b * Math.sqrt(0.5 * (x*x + y*y))) -
-                       Math.exp(0.5 * (Math.cos(c*x) + Math.cos(c*y))) + a + Math.E;
+                return -a * Math.exp(-b * Math.abs(x)) -
+                       Math.exp(Math.cos(c*x)) + a + Math.E;
             },
 
-            himmelblau: (x, y) => {
-                return (x*x + y - 11) ** 2 + (x + y*y - 7) ** 2;
+            sincos: (x) => {
+                // Combination of sine and cosine
+                return Math.sin(x) * Math.cos(x/2) + 0.05 * x * x;
             },
 
-            eggholder: (x, y) => {
-                return -(y + 47) * Math.sin(Math.sqrt(Math.abs(x/2 + (y + 47)))) -
-                       x * Math.sin(Math.sqrt(Math.abs(x - (y + 47))));
-            },
-
-            peaks: (x, y) => {
-                // Multiple Gaussian peaks
-                const peaks = [
-                    { x: -1, y: -1, h: 3 },
-                    { x: 1, y: 1, h: 4 },
-                    { x: -1.5, y: 1.5, h: 2.5 },
-                    { x: 1.5, y: -1.5, h: 3.5 },
-                    { x: 0, y: 0, h: 5 },
-                    { x: 2, y: 0, h: 2 }
-                ];
-                let sum = 0;
-                peaks.forEach(peak => {
-                    const dx = x - peak.x;
-                    const dy = y - peak.y;
-                    sum += peak.h * Math.exp(-(dx*dx + dy*dy));
-                });
-                return -sum + 5; // Invert so we minimize
-            },
-
-            schaffer: (x, y) => {
-                const r2 = x*x + y*y;
-                return 0.5 + (Math.sin(Math.sqrt(r2)) ** 2 - 0.5) /
-                       ((1 + 0.001 * r2) ** 2);
+            bumpy: (x) => {
+                // Bumpy function with irregular local minima
+                return x * Math.sin(3 * x) + 0.5 * Math.sin(5 * x) +
+                       0.1 * x * x + 2 * Math.sin(x);
             }
         };
 
-        // Gradient functions (numerical approximation)
-        function gradient(func, x, y) {
+        // Gradient function (numerical approximation) - 1D
+        function gradient(func, x) {
             const h = 0.0001;
-            const dfdx = (func(x + h, y) - func(x - h, y)) / (2 * h);
-            const dfdy = (func(x, y + h) - func(x, y - h)) / (2 * h);
-            return { x: dfdx, y: dfdy };
+            const dfdx = (func(x + h) - func(x - h)) / (2 * h);
+            return dfdx;
         }
 
-        // Convert canvas coordinates to function domain
-        function canvasToWorld(canvasX, canvasY) {
+        // Convert canvas X coordinate to function domain
+        function canvasXToWorld(canvasX) {
             const domain = domains[currentFunction];
             const x = domain.min + (canvasX / canvas.width) * (domain.max - domain.min);
-            const y = domain.max - (canvasY / canvas.height) * (domain.max - domain.min);
-            return { x, y };
+            return x;
         }
 
-        // Convert function domain to canvas coordinates
-        function worldToCanvas(x, y) {
+        // Convert function domain X to canvas X coordinate
+        function worldXToCanvas(x) {
             const domain = domains[currentFunction];
             const canvasX = ((x - domain.min) / (domain.max - domain.min)) * canvas.width;
-            const canvasY = ((domain.max - y) / (domain.max - domain.min)) * canvas.height;
-            return { x: canvasX, y: canvasY };
+            return canvasX;
         }
 
-        // Draw contour plot
-        function drawContours() {
-            const resolution = 200;
+        // Convert function value to canvas Y coordinate
+        function valueToCanvasY(value, minVal, maxVal) {
+            const padding = 50;
+            const availableHeight = canvas.height - 2 * padding;
+            const normalized = (value - minVal) / (maxVal - minVal);
+            return canvas.height - padding - normalized * availableHeight;
+        }
+
+        // Draw function graph
+        function drawFunctionGraph() {
+            const resolution = 1000;
             const domain = domains[currentFunction];
             const func = functions[currentFunction];
 
-            // Calculate function values
+            // Calculate function values and find min/max
             let minVal = Infinity;
             let maxVal = -Infinity;
-            const values = [];
+            const points = [];
 
             for (let i = 0; i < resolution; i++) {
-                values[i] = [];
-                for (let j = 0; j < resolution; j++) {
-                    const x = domain.min + (i / resolution) * (domain.max - domain.min);
-                    const y = domain.min + (j / resolution) * (domain.max - domain.min);
-                    const val = func(x, y);
-                    values[i][j] = val;
-                    minVal = Math.min(minVal, val);
-                    maxVal = Math.max(maxVal, val);
+                const x = domain.min + (i / resolution) * (domain.max - domain.min);
+                const val = func(x);
+                points.push({ x, val });
+                minVal = Math.min(minVal, val);
+                maxVal = Math.max(maxVal, val);
+            }
+
+            // Add some padding to the range
+            const range = maxVal - minVal;
+            minVal -= range * 0.1;
+            maxVal += range * 0.1;
+
+            // Draw gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#ffe6e6');
+            gradient.addColorStop(0.5, '#fff4e6');
+            gradient.addColorStop(1, '#e6ffe6');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const x = (i / 10) * canvas.width;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+
+                const y = (i / 10) * canvas.height;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw function curve
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            for (let i = 0; i < points.length; i++) {
+                const canvasX = worldXToCanvas(points[i].x);
+                const canvasY = valueToCanvasY(points[i].val, minVal, maxVal);
+
+                if (i === 0) {
+                    ctx.moveTo(canvasX, canvasY);
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
                 }
             }
 
-            // Draw colored grid
-            const cellWidth = canvas.width / resolution;
-            const cellHeight = canvas.height / resolution;
+            ctx.stroke();
 
-            for (let i = 0; i < resolution; i++) {
-                for (let j = 0; j < resolution; j++) {
-                    const val = values[i][j];
-                    const normalized = (val - minVal) / (maxVal - minVal);
+            // Fill area under curve
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(37, 99, 235, 0.1)';
+            ctx.fill();
 
-                    // Color map: green (low) -> yellow -> red (high)
-                    let r, g, b;
-                    if (normalized < 0.5) {
-                        r = Math.floor(255 * (normalized * 2));
-                        g = 170;
-                        b = 0;
-                    } else {
-                        r = 255;
-                        g = Math.floor(170 * (1 - (normalized - 0.5) * 2));
-                        b = 0;
-                    }
-
-                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                    ctx.fillRect(i * cellWidth, j * cellHeight, cellWidth + 1, cellHeight + 1);
-                }
-            }
+            return { minVal, maxVal };
         }
 
         // Draw path
-        function drawPath() {
+        function drawPath(minVal, maxVal) {
             if (path.length < 2) return;
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)';
             ctx.lineWidth = 2;
             ctx.beginPath();
 
-            const firstPoint = worldToCanvas(path[0].x, path[0].y);
+            const firstPoint = {
+                x: worldXToCanvas(path[0].x),
+                y: valueToCanvasY(path[0].val, minVal, maxVal)
+            };
             ctx.moveTo(firstPoint.x, firstPoint.y);
 
             for (let i = 1; i < path.length; i++) {
-                const point = worldToCanvas(path[i].x, path[i].y);
+                const point = {
+                    x: worldXToCanvas(path[i].x),
+                    y: valueToCanvasY(path[i].val, minVal, maxVal)
+                };
                 ctx.lineTo(point.x, point.y);
             }
 
             ctx.stroke();
 
             // Draw path points
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fillStyle = 'rgba(220, 38, 38, 0.4)';
             for (let i = 0; i < path.length; i++) {
-                const point = worldToCanvas(path[i].x, path[i].y);
+                const point = {
+                    x: worldXToCanvas(path[i].x),
+                    y: valueToCanvasY(path[i].val, minVal, maxVal)
+                };
                 ctx.beginPath();
-                ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+                ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI);
                 ctx.fill();
             }
         }
 
-        // Draw ball
-        function drawBall() {
-            const canvasPos = worldToCanvas(position.x, position.y);
+        // Draw ball at current position
+        function drawBall(minVal, maxVal) {
+            const func = functions[currentFunction];
+            const canvasX = worldXToCanvas(position);
+            const canvasY = valueToCanvasY(func(position), minVal, maxVal);
 
             // Shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
             ctx.beginPath();
-            ctx.arc(canvasPos.x + 2, canvasPos.y + 2, 12, 0, 2 * Math.PI);
+            ctx.arc(canvasX + 2, canvasY + 2, 15, 0, 2 * Math.PI);
             ctx.fill();
 
             // Ball
             const gradient = ctx.createRadialGradient(
-                canvasPos.x - 4, canvasPos.y - 4, 2,
-                canvasPos.x, canvasPos.y, 12
+                canvasX - 5, canvasY - 5, 2,
+                canvasX, canvasY, 15
             );
-            gradient.addColorStop(0, '#66b3ff');
-            gradient.addColorStop(1, '#0066ff');
+            gradient.addColorStop(0, '#fbbf24');
+            gradient.addColorStop(1, '#f59e0b');
 
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(canvasPos.x, canvasPos.y, 12, 0, 2 * Math.PI);
+            ctx.arc(canvasX, canvasY, 15, 0, 2 * Math.PI);
             ctx.fill();
 
             // Highlight
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
             ctx.beginPath();
-            ctx.arc(canvasPos.x - 4, canvasPos.y - 4, 4, 0, 2 * Math.PI);
+            ctx.arc(canvasX - 5, canvasY - 5, 5, 0, 2 * Math.PI);
             ctx.fill();
 
             // Border
             ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(canvasPos.x, canvasPos.y, 12, 0, 2 * Math.PI);
+            ctx.arc(canvasX, canvasY, 15, 0, 2 * Math.PI);
             ctx.stroke();
         }
 
         // Render
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawContours();
-            drawPath();
-            drawBall();
+            const { minVal, maxVal } = drawFunctionGraph();
+            drawPath(minVal, maxVal);
+            drawBall(minVal, maxVal);
             updateStats();
         }
 
         // Update statistics display
         function updateStats() {
             document.getElementById('iterationCount').textContent = iteration;
-            document.getElementById('posX').textContent = position.x.toFixed(4);
-            document.getElementById('posY').textContent = position.y.toFixed(4);
+            document.getElementById('posX').textContent = position.toFixed(4);
 
-            const funcValue = functions[currentFunction](position.x, position.y);
+            const funcValue = functions[currentFunction](position);
             document.getElementById('funcValue').textContent = funcValue.toFixed(4);
 
-            const velocityMag = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
-            document.getElementById('velocityMag').textContent = velocityMag.toFixed(4);
+            document.getElementById('gradientMag').textContent = Math.abs(lastGradient).toFixed(6);
+            document.getElementById('velocityMag').textContent = Math.abs(velocity).toFixed(6);
         }
 
         // Gradient descent step
         function step() {
             const func = functions[currentFunction];
-            const grad = gradient(func, position.x, position.y);
+            const grad = gradient(func, position);
+            lastGradient = grad;
 
             // Update velocity with momentum
-            velocity.x = momentum * velocity.x - learningRate * grad.x;
-            velocity.y = momentum * velocity.y - learningRate * grad.y;
+            velocity = momentum * velocity - learningRate * grad;
 
             // Update position
-            position.x += velocity.x;
-            position.y += velocity.y;
+            position += velocity;
 
             // Keep within bounds
             const domain = domains[currentFunction];
-            position.x = Math.max(domain.min, Math.min(domain.max, position.x));
-            position.y = Math.max(domain.min, Math.min(domain.max, position.y));
+            position = Math.max(domain.min, Math.min(domain.max, position));
 
             // Add to path
-            path.push({ x: position.x, y: position.y });
+            path.push({ x: position, val: func(position) });
 
             iteration++;
         }
 
         // Animation loop
-        function animate() {
+        let lastFrameTime = 0;
+        function animate(currentTime) {
             if (!isRunning) return;
 
-            // Number of steps per frame based on speed
-            const stepsPerFrame = speed;
+            // Control animation speed with delay
+            const delays = [500, 300, 150, 80, 40]; // milliseconds between frames
+            const delay = delays[speed - 1];
 
-            for (let i = 0; i < stepsPerFrame; i++) {
-                step();
+            if (currentTime - lastFrameTime < delay) {
+                animationId = requestAnimationFrame(animate);
+                return;
+            }
+            lastFrameTime = currentTime;
 
-                // Stop if velocity is very small (converged)
-                const velocityMag = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
-                if (velocityMag < 1e-6) {
-                    stop();
-                    return;
-                }
+            // Perform one step
+            step();
 
-                // Stop after max iterations
-                if (iteration > 10000) {
-                    stop();
-                    return;
-                }
+            // Stop if gradient is very small (converged to local minimum)
+            // When there's no momentum, this ensures we stop at local minimum
+            if (Math.abs(lastGradient) < 1e-4) {
+                stop();
+                render();
+                return;
+            }
+
+            // Stop after max iterations
+            if (iteration > 5000) {
+                stop();
+                render();
+                return;
             }
 
             render();
@@ -604,9 +630,11 @@
             }
 
             isRunning = true;
+            lastFrameTime = 0;
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
-            animate();
+            document.getElementById('stepBtn').disabled = true;
+            animationId = requestAnimationFrame(animate);
         }
 
         // Stop optimization
@@ -614,9 +642,26 @@
             isRunning = false;
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
+            document.getElementById('stepBtn').disabled = false;
             if (animationId) {
                 cancelAnimationFrame(animationId);
                 animationId = null;
+            }
+        }
+
+        // Single step
+        function singleStep() {
+            if (path.length === 0) {
+                alert('Kliknite na canvas da postavite početnu tačku!');
+                return;
+            }
+
+            step();
+            render();
+
+            // Check stopping conditions
+            if (Math.abs(lastGradient) < 1e-4) {
+                alert('Dostignut lokalni minimum (gradijent ≈ 0)');
             }
         }
 
@@ -624,14 +669,15 @@
         function reset() {
             stop();
             path = [];
-            velocity = { x: 0, y: 0 };
+            velocity = 0;
             iteration = 0;
+            lastGradient = 0;
 
             // Set default position
             const domain = domains[currentFunction];
-            position = { x: domain.min + 0.3 * (domain.max - domain.min),
-                        y: domain.max - 0.3 * (domain.max - domain.min) };
-            path.push({ x: position.x, y: position.y });
+            position = domain.min + 0.3 * (domain.max - domain.min);
+            const func = functions[currentFunction];
+            path.push({ x: position, val: func(position) });
 
             render();
         }
@@ -640,13 +686,13 @@
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const canvasX = e.clientX - rect.left;
-            const canvasY = e.clientY - rect.top;
 
-            const worldPos = canvasToWorld(canvasX, canvasY);
-            position = worldPos;
-            velocity = { x: 0, y: 0 };
-            path = [{ x: position.x, y: position.y }];
+            position = canvasXToWorld(canvasX);
+            velocity = 0;
+            const func = functions[currentFunction];
+            path = [{ x: position, val: func(position) }];
             iteration = 0;
+            lastGradient = 0;
 
             stop();
             render();
@@ -675,6 +721,7 @@
 
         document.getElementById('startBtn').addEventListener('click', start);
         document.getElementById('stopBtn').addEventListener('click', stop);
+        document.getElementById('stepBtn').addEventListener('click', singleStep);
         document.getElementById('resetBtn').addEventListener('click', reset);
 
         // Initialize

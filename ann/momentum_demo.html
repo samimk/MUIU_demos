@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gradient Descent sa Momentumom</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #2d3748;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 800px 1fr;
+            gap: 30px;
+        }
+
+        .canvas-container {
+            position: relative;
+        }
+
+        canvas {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: crosshair;
+            display: block;
+        }
+
+        .controls {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .control-group select,
+        .control-group input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .control-group input[type="range"] {
+            padding: 0;
+        }
+
+        .value-display {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin-left: 10px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-start {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+
+        .btn-stop {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-stop:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.4);
+        }
+
+        .btn-reset {
+            background: #4299e1;
+            color: white;
+            grid-column: span 2;
+        }
+
+        .btn-reset:hover {
+            background: #3182ce;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .info-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-top: 20px;
+        }
+
+        .info-panel h3 {
+            margin-top: 0;
+            color: #2d3748;
+            font-size: 16px;
+        }
+
+        .info-panel p {
+            margin: 5px 0;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .legend h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #2d3748;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .instructions {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #2d3748;
+        }
+
+        .instructions strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎢 Gradijentni Spust sa Momentumom</h1>
+        <p class="subtitle">Interaktivna vizualizacija optimizacije multimodalnih funkcija</p>
+
+        <div class="content">
+            <div class="canvas-container">
+                <canvas id="canvas" width="800" height="800"></canvas>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Funkcija</label>
+                    <select id="functionSelect">
+                        <option value="rastrigin">Rastrigin (mnogo lokalnih minimuma)</option>
+                        <option value="ackley">Ackley (mnogo plitkih minimuma)</option>
+                        <option value="himmelblau">Himmelblau (4 lokalna minimuma)</option>
+                        <option value="eggholder">Eggholder (veoma složena)</option>
+                        <option value="peaks">Multiple Peaks (6 minimuma)</option>
+                        <option value="schaffer">Schaffer N2 (koncentrični krugovi)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        Momentum (α)
+                        <span class="value-display" id="momentumValue">0.00</span>
+                    </label>
+                    <input type="range" id="momentumSlider" min="0" max="99" value="0" step="1">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        Brzina učenja (η)
+                        <span class="value-display" id="learningRateValue">0.01</span>
+                    </label>
+                    <input type="range" id="learningRateSlider" min="1" max="50" value="10" step="1">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        Brzina demonstracije
+                        <span class="value-display" id="speedValue">Srednja</span>
+                    </label>
+                    <input type="range" id="speedSlider" min="1" max="5" value="3" step="1">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-start" id="startBtn">▶ Start</button>
+                    <button class="btn-stop" id="stopBtn" disabled>⏸ Stop</button>
+                    <button class="btn-reset" id="resetBtn">↻ Reset</button>
+                </div>
+
+                <div class="info-panel">
+                    <h3>📊 Statistika</h3>
+                    <p><strong>Iteracija:</strong> <span id="iterationCount">0</span></p>
+                    <p><strong>Pozicija:</strong> (<span id="posX">0</span>, <span id="posY">0</span>)</p>
+                    <p><strong>Vrijednost funkcije:</strong> <span id="funcValue">0</span></p>
+                    <p><strong>Brzina:</strong> <span id="velocityMag">0</span></p>
+                </div>
+
+                <div class="legend">
+                    <h3>🎨 Legenda</h3>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff4444;"></div>
+                        <span>Visoke vrijednosti</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffaa00;"></div>
+                        <span>Srednje vrijednosti</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00aa00;"></div>
+                        <span>Niske vrijednosti</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #0066ff; border: 2px solid white;"></div>
+                        <span>Loptica (trenutna pozicija)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(255,255,255,0.5);"></div>
+                        <span>Putanja</span>
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <strong>Kako koristiti:</strong><br>
+                    1. Odaberite funkciju za optimizaciju<br>
+                    2. Kliknite na canvas da postavite početnu tačku<br>
+                    3. Podesite momentum i brzinu učenja<br>
+                    4. Kliknite Start da pokrenete gradijentni spust<br>
+                    <br>
+                    <strong>Napomena:</strong> Momentum pomaže da se prođe preko plitkih lokalnih minimuma!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State
+        let position = { x: 0, y: 0 };
+        let velocity = { x: 0, y: 0 };
+        let isRunning = false;
+        let iteration = 0;
+        let path = [];
+        let animationId = null;
+        let currentFunction = 'rastrigin';
+        let momentum = 0;
+        let learningRate = 0.01;
+        let speed = 3;
+
+        // Domain ranges for different functions
+        const domains = {
+            rastrigin: { min: -5.12, max: 5.12 },
+            ackley: { min: -5, max: 5 },
+            himmelblau: { min: -5, max: 5 },
+            eggholder: { min: -512, max: 512 },
+            peaks: { min: -3, max: 3 },
+            schaffer: { min: -10, max: 10 }
+        };
+
+        // Test functions
+        const functions = {
+            rastrigin: (x, y) => {
+                const A = 10;
+                return A * 2 + (x*x - A * Math.cos(2 * Math.PI * x)) +
+                       (y*y - A * Math.cos(2 * Math.PI * y));
+            },
+
+            ackley: (x, y) => {
+                const a = 20, b = 0.2, c = 2 * Math.PI;
+                return -a * Math.exp(-b * Math.sqrt(0.5 * (x*x + y*y))) -
+                       Math.exp(0.5 * (Math.cos(c*x) + Math.cos(c*y))) + a + Math.E;
+            },
+
+            himmelblau: (x, y) => {
+                return (x*x + y - 11) ** 2 + (x + y*y - 7) ** 2;
+            },
+
+            eggholder: (x, y) => {
+                return -(y + 47) * Math.sin(Math.sqrt(Math.abs(x/2 + (y + 47)))) -
+                       x * Math.sin(Math.sqrt(Math.abs(x - (y + 47))));
+            },
+
+            peaks: (x, y) => {
+                // Multiple Gaussian peaks
+                const peaks = [
+                    { x: -1, y: -1, h: 3 },
+                    { x: 1, y: 1, h: 4 },
+                    { x: -1.5, y: 1.5, h: 2.5 },
+                    { x: 1.5, y: -1.5, h: 3.5 },
+                    { x: 0, y: 0, h: 5 },
+                    { x: 2, y: 0, h: 2 }
+                ];
+                let sum = 0;
+                peaks.forEach(peak => {
+                    const dx = x - peak.x;
+                    const dy = y - peak.y;
+                    sum += peak.h * Math.exp(-(dx*dx + dy*dy));
+                });
+                return -sum + 5; // Invert so we minimize
+            },
+
+            schaffer: (x, y) => {
+                const r2 = x*x + y*y;
+                return 0.5 + (Math.sin(Math.sqrt(r2)) ** 2 - 0.5) /
+                       ((1 + 0.001 * r2) ** 2);
+            }
+        };
+
+        // Gradient functions (numerical approximation)
+        function gradient(func, x, y) {
+            const h = 0.0001;
+            const dfdx = (func(x + h, y) - func(x - h, y)) / (2 * h);
+            const dfdy = (func(x, y + h) - func(x, y - h)) / (2 * h);
+            return { x: dfdx, y: dfdy };
+        }
+
+        // Convert canvas coordinates to function domain
+        function canvasToWorld(canvasX, canvasY) {
+            const domain = domains[currentFunction];
+            const x = domain.min + (canvasX / canvas.width) * (domain.max - domain.min);
+            const y = domain.max - (canvasY / canvas.height) * (domain.max - domain.min);
+            return { x, y };
+        }
+
+        // Convert function domain to canvas coordinates
+        function worldToCanvas(x, y) {
+            const domain = domains[currentFunction];
+            const canvasX = ((x - domain.min) / (domain.max - domain.min)) * canvas.width;
+            const canvasY = ((domain.max - y) / (domain.max - domain.min)) * canvas.height;
+            return { x: canvasX, y: canvasY };
+        }
+
+        // Draw contour plot
+        function drawContours() {
+            const resolution = 200;
+            const domain = domains[currentFunction];
+            const func = functions[currentFunction];
+
+            // Calculate function values
+            let minVal = Infinity;
+            let maxVal = -Infinity;
+            const values = [];
+
+            for (let i = 0; i < resolution; i++) {
+                values[i] = [];
+                for (let j = 0; j < resolution; j++) {
+                    const x = domain.min + (i / resolution) * (domain.max - domain.min);
+                    const y = domain.min + (j / resolution) * (domain.max - domain.min);
+                    const val = func(x, y);
+                    values[i][j] = val;
+                    minVal = Math.min(minVal, val);
+                    maxVal = Math.max(maxVal, val);
+                }
+            }
+
+            // Draw colored grid
+            const cellWidth = canvas.width / resolution;
+            const cellHeight = canvas.height / resolution;
+
+            for (let i = 0; i < resolution; i++) {
+                for (let j = 0; j < resolution; j++) {
+                    const val = values[i][j];
+                    const normalized = (val - minVal) / (maxVal - minVal);
+
+                    // Color map: green (low) -> yellow -> red (high)
+                    let r, g, b;
+                    if (normalized < 0.5) {
+                        r = Math.floor(255 * (normalized * 2));
+                        g = 170;
+                        b = 0;
+                    } else {
+                        r = 255;
+                        g = Math.floor(170 * (1 - (normalized - 0.5) * 2));
+                        b = 0;
+                    }
+
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(i * cellWidth, j * cellHeight, cellWidth + 1, cellHeight + 1);
+                }
+            }
+        }
+
+        // Draw path
+        function drawPath() {
+            if (path.length < 2) return;
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            const firstPoint = worldToCanvas(path[0].x, path[0].y);
+            ctx.moveTo(firstPoint.x, firstPoint.y);
+
+            for (let i = 1; i < path.length; i++) {
+                const point = worldToCanvas(path[i].x, path[i].y);
+                ctx.lineTo(point.x, point.y);
+            }
+
+            ctx.stroke();
+
+            // Draw path points
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            for (let i = 0; i < path.length; i++) {
+                const point = worldToCanvas(path[i].x, path[i].y);
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+
+        // Draw ball
+        function drawBall() {
+            const canvasPos = worldToCanvas(position.x, position.y);
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.arc(canvasPos.x + 2, canvasPos.y + 2, 12, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Ball
+            const gradient = ctx.createRadialGradient(
+                canvasPos.x - 4, canvasPos.y - 4, 2,
+                canvasPos.x, canvasPos.y, 12
+            );
+            gradient.addColorStop(0, '#66b3ff');
+            gradient.addColorStop(1, '#0066ff');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(canvasPos.x, canvasPos.y, 12, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.beginPath();
+            ctx.arc(canvasPos.x - 4, canvasPos.y - 4, 4, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(canvasPos.x, canvasPos.y, 12, 0, 2 * Math.PI);
+            ctx.stroke();
+        }
+
+        // Render
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawContours();
+            drawPath();
+            drawBall();
+            updateStats();
+        }
+
+        // Update statistics display
+        function updateStats() {
+            document.getElementById('iterationCount').textContent = iteration;
+            document.getElementById('posX').textContent = position.x.toFixed(4);
+            document.getElementById('posY').textContent = position.y.toFixed(4);
+
+            const funcValue = functions[currentFunction](position.x, position.y);
+            document.getElementById('funcValue').textContent = funcValue.toFixed(4);
+
+            const velocityMag = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+            document.getElementById('velocityMag').textContent = velocityMag.toFixed(4);
+        }
+
+        // Gradient descent step
+        function step() {
+            const func = functions[currentFunction];
+            const grad = gradient(func, position.x, position.y);
+
+            // Update velocity with momentum
+            velocity.x = momentum * velocity.x - learningRate * grad.x;
+            velocity.y = momentum * velocity.y - learningRate * grad.y;
+
+            // Update position
+            position.x += velocity.x;
+            position.y += velocity.y;
+
+            // Keep within bounds
+            const domain = domains[currentFunction];
+            position.x = Math.max(domain.min, Math.min(domain.max, position.x));
+            position.y = Math.max(domain.min, Math.min(domain.max, position.y));
+
+            // Add to path
+            path.push({ x: position.x, y: position.y });
+
+            iteration++;
+        }
+
+        // Animation loop
+        function animate() {
+            if (!isRunning) return;
+
+            // Number of steps per frame based on speed
+            const stepsPerFrame = speed;
+
+            for (let i = 0; i < stepsPerFrame; i++) {
+                step();
+
+                // Stop if velocity is very small (converged)
+                const velocityMag = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+                if (velocityMag < 1e-6) {
+                    stop();
+                    return;
+                }
+
+                // Stop after max iterations
+                if (iteration > 10000) {
+                    stop();
+                    return;
+                }
+            }
+
+            render();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Start optimization
+        function start() {
+            if (path.length === 0) {
+                alert('Kliknite na canvas da postavite početnu tačku!');
+                return;
+            }
+
+            isRunning = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            animate();
+        }
+
+        // Stop optimization
+        function stop() {
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        // Reset
+        function reset() {
+            stop();
+            path = [];
+            velocity = { x: 0, y: 0 };
+            iteration = 0;
+
+            // Set default position
+            const domain = domains[currentFunction];
+            position = { x: domain.min + 0.3 * (domain.max - domain.min),
+                        y: domain.max - 0.3 * (domain.max - domain.min) };
+            path.push({ x: position.x, y: position.y });
+
+            render();
+        }
+
+        // Event listeners
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const canvasX = e.clientX - rect.left;
+            const canvasY = e.clientY - rect.top;
+
+            const worldPos = canvasToWorld(canvasX, canvasY);
+            position = worldPos;
+            velocity = { x: 0, y: 0 };
+            path = [{ x: position.x, y: position.y }];
+            iteration = 0;
+
+            stop();
+            render();
+        });
+
+        document.getElementById('functionSelect').addEventListener('change', (e) => {
+            currentFunction = e.target.value;
+            reset();
+        });
+
+        document.getElementById('momentumSlider').addEventListener('input', (e) => {
+            momentum = e.target.value / 100;
+            document.getElementById('momentumValue').textContent = momentum.toFixed(2);
+        });
+
+        document.getElementById('learningRateSlider').addEventListener('input', (e) => {
+            learningRate = e.target.value / 1000;
+            document.getElementById('learningRateValue').textContent = learningRate.toFixed(3);
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            speed = parseInt(e.target.value);
+            const speedLabels = ['Vrlo sporo', 'Sporo', 'Srednje', 'Brzo', 'Vrlo brzo'];
+            document.getElementById('speedValue').textContent = speedLabels[speed - 1];
+        });
+
+        document.getElementById('startBtn').addEventListener('click', start);
+        document.getElementById('stopBtn').addEventListener('click', stop);
+        document.getElementById('resetBtn').addEventListener('click', reset);
+
+        // Initialize
+        reset();
+    </script>
+</body>
+</html>

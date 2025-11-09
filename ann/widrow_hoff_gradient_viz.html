@@ -872,33 +872,55 @@
                 funcCtx.lineWidth = 2;
                 funcCtx.setLineDash([5, 5]);
                 funcCtx.beginPath();
-                
+
+                let pathStarted = false;
                 for (let i = 0; i <= 100; i++) {
                     const x = i / 100;
                     const y = optimalWeights[0] + optimalWeights[1] * x;
-                    const cx = xToCanvas(x);
-                    const cy = yToCanvas(Math.max(0, Math.min(1, y)));
-                    
-                    if (i === 0) funcCtx.moveTo(cx, cy);
-                    else funcCtx.lineTo(cx, cy);
+
+                    // Only draw if y is within visible range
+                    if (y >= 0 && y <= 1) {
+                        const cx = xToCanvas(x);
+                        const cy = yToCanvas(y);
+
+                        if (!pathStarted) {
+                            funcCtx.moveTo(cx, cy);
+                            pathStarted = true;
+                        } else {
+                            funcCtx.lineTo(cx, cy);
+                        }
+                    } else {
+                        pathStarted = false;
+                    }
                 }
                 funcCtx.stroke();
                 funcCtx.setLineDash([]);
             }
-            
+
             // Draw learned function
             funcCtx.strokeStyle = '#667eea';
             funcCtx.lineWidth = 3;
             funcCtx.beginPath();
-            
+
+            let pathStarted = false;
             for (let i = 0; i <= 100; i++) {
                 const x = i / 100;
                 const y = weights[0] + weights[1] * x;
-                const cx = xToCanvas(x);
-                const cy = yToCanvas(Math.max(0, Math.min(1, y)));
-                
-                if (i === 0) funcCtx.moveTo(cx, cy);
-                else funcCtx.lineTo(cx, cy);
+
+                // Only draw if y is within visible range
+                if (y >= 0 && y <= 1) {
+                    const cx = xToCanvas(x);
+                    const cy = yToCanvas(y);
+
+                    if (!pathStarted) {
+                        funcCtx.moveTo(cx, cy);
+                        pathStarted = true;
+                    } else {
+                        funcCtx.lineTo(cx, cy);
+                    }
+                } else {
+                    pathStarted = false;
+                }
             }
             funcCtx.stroke();
             

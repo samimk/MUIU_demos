@@ -37,8 +37,77 @@
         .subtitle {
             text-align: center;
             color: #666;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-size: 1.1em;
+        }
+
+        .network-architecture {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .network-architecture h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .architecture-diagram {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            margin: 20px 0;
+        }
+
+        .layer-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .layer-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .neurons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .neuron {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .connections {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            height: 115px;
+            position: relative;
+        }
+
+        .arrow {
+            color: #999;
+            font-size: 2em;
         }
         
         .main-content {
@@ -206,7 +275,43 @@
     <div class="container">
         <h1>🧠 Transformacija prostora kroz skrivene slojeve</h1>
         <p class="subtitle">Interaktivna vizualizacija kako neuronska mreža transformira ulazni prostor</p>
-        
+
+        <div class="network-architecture">
+            <h2>📐 Arhitektura mreže</h2>
+            <div class="architecture-diagram">
+                <div class="layer-group">
+                    <div class="layer-title">Ulazni sloj</div>
+                    <div class="neurons">
+                        <div class="neuron">x₁</div>
+                        <div class="neuron">x₂</div>
+                    </div>
+                </div>
+                <div class="connections">
+                    <span class="arrow">→</span>
+                    <span class="arrow">→</span>
+                </div>
+                <div class="layer-group">
+                    <div class="layer-title">Skriveni sloj (2 neurona)</div>
+                    <div class="neurons">
+                        <div class="neuron">h₁</div>
+                        <div class="neuron">h₂</div>
+                    </div>
+                </div>
+                <div class="connections">
+                    <span class="arrow">→</span>
+                </div>
+                <div class="layer-group">
+                    <div class="layer-title">Izlazni sloj</div>
+                    <div class="neurons">
+                        <div class="neuron">y</div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; color: #666; font-size: 0.9em; margin-top: 15px;">
+                2 ulaza → 2 skrivena neurona → 1 izlaz (binarna klasifikacija)
+            </div>
+        </div>
+
         <div class="main-content">
             <div class="controls">
                 <div class="control-group">
@@ -225,8 +330,7 @@
                 <div class="control-group">
                     <h3>🏗️ Arhitektura</h3>
                     <div class="control-item">
-                        <label for="hiddenNeurons">Broj neurona u skrivenom sloju: <span class="value-display" id="neuronCount">4</span></label>
-                        <input type="range" id="hiddenNeurons" min="2" max="8" value="4">
+                        <label>Broj neurona u skrivenom sloju: <span class="value-display">2 (fiksno)</span></label>
                     </div>
                     <div class="control-item">
                         <label for="activation">Aktivacijska funkcija:</label>
@@ -261,38 +365,46 @@
                 <div class="info-box" style="margin-top: 10px;">
                     <h4>🎯 Šta vidite:</h4>
                     <p>
-                        <strong>Input Space:</strong> Originalni (x₁, x₂) prostor sa decision boundary<br>
-                        <strong>After Layer 1:</strong> Tačke transformisane u (z₁, z₂) prostor preko W₁x + b₁<br>
-                        <strong>After Activation:</strong> (a₁, a₂) = σ(z₁, z₂) - nelinearna transformacija<br>
-                        <strong>Output:</strong> Finalna klasifikacija u originalnom prostoru
+                        <strong>1. Ulazni prostor:</strong> Originalni (x₁, x₂) podaci<br>
+                        <strong>2. Skriveni - Linear:</strong> z = W₁x + b₁ (linearna transformacija)<br>
+                        <strong>3. Skriveni - Aktivacija:</strong> a = σ(z) (nelinearna transformacija)<br>
+                        <strong>4. Izlaz - Linear:</strong> z₂ = W₂a + b₂ (prije finalne aktivacije)<br>
+                        <strong>5. Izlaz - Aktivacija:</strong> y = sigmoid(z₂) (finalna klasifikacija)
                     </p>
                 </div>
             </div>
             
             <div class="visualization">
                 <div class="layer-row">
-                    <div class="layer-label">Input Space<br>(x₁, x₂)</div>
+                    <div class="layer-label">1. Ulazni prostor<br>(x₁, x₂)</div>
                     <div class="canvas-container">
                         <canvas id="inputCanvas" width="400" height="400"></canvas>
                     </div>
                 </div>
 
                 <div class="layer-row">
-                    <div class="layer-label">Hidden Space - Linear<br>(z₁, z₂)</div>
+                    <div class="layer-label">2. Skriveni - Linear<br>z = W₁x + b₁</div>
                     <div class="canvas-container">
                         <canvas id="hiddenLinearCanvas" width="400" height="400"></canvas>
                     </div>
                 </div>
 
                 <div class="layer-row">
-                    <div class="layer-label">Hidden Space - Activated<br>(a₁, a₂)</div>
+                    <div class="layer-label">3. Skriveni - Aktivacija<br>a = σ(z)</div>
                     <div class="canvas-container">
                         <canvas id="hiddenActivatedCanvas" width="400" height="400"></canvas>
                     </div>
                 </div>
 
                 <div class="layer-row">
-                    <div class="layer-label">Output Space<br>(klasifikacija)</div>
+                    <div class="layer-label">4. Izlaz - Linear<br>z₂ = W₂a + b₂</div>
+                    <div class="canvas-container">
+                        <canvas id="outputLinearCanvas" width="400" height="400"></canvas>
+                    </div>
+                </div>
+
+                <div class="layer-row">
+                    <div class="layer-label">5. Izlaz - Aktivacija<br>y = sigmoid(z₂)</div>
                     <div class="canvas-container">
                         <canvas id="outputCanvas" width="400" height="400"></canvas>
                     </div>
@@ -507,16 +619,18 @@
                     input: document.getElementById('inputCanvas'),
                     hiddenLinear: document.getElementById('hiddenLinearCanvas'),
                     hiddenActivated: document.getElementById('hiddenActivatedCanvas'),
+                    outputLinear: document.getElementById('outputLinearCanvas'),
                     output: document.getElementById('outputCanvas')
                 };
-                
+
                 this.contexts = {
                     input: this.canvases.input.getContext('2d'),
                     hiddenLinear: this.canvases.hiddenLinear.getContext('2d'),
                     hiddenActivated: this.canvases.hiddenActivated.getContext('2d'),
+                    outputLinear: this.canvases.outputLinear.getContext('2d'),
                     output: this.canvases.output.getContext('2d')
                 };
-                
+
                 this.gridResolution = 40;
             }
             
@@ -536,8 +650,9 @@
                     return {
                         input: point.x,
                         label: point.y,
-                        z1: nn.hiddenSize >= 2 ? [nn.z1[0], nn.z1[1]] : [nn.z1[0], 0],
-                        a1: nn.hiddenSize >= 2 ? [nn.a1[0], nn.a1[1]] : [nn.a1[0], 0],
+                        z1: [nn.z1[0], nn.z1[1]],
+                        a1: [nn.a1[0], nn.a1[1]],
+                        z2: nn.z2[0], // Output before activation
                         output: nn.output
                     };
                 });
@@ -546,6 +661,7 @@
                 this.drawDecisionBoundary(this.contexts.input, nn, 'input', transformedData);
                 this.drawDecisionBoundary(this.contexts.hiddenLinear, nn, 'hiddenLinear', transformedData);
                 this.drawDecisionBoundary(this.contexts.hiddenActivated, nn, 'hiddenActivated', transformedData);
+                this.drawDecisionBoundary(this.contexts.outputLinear, nn, 'outputLinear', transformedData);
                 this.drawDecisionBoundary(this.contexts.output, nn, 'output', transformedData);
 
                 // Draw data points in each transformed space
@@ -558,6 +674,11 @@
 
                     // Hidden activated: show a1 coordinates (after activation)
                     this.drawPoint(this.contexts.hiddenActivated, point.input, point.a1, point.label);
+
+                    // Output linear: show z2 as 1D value (we'll map it to y-axis)
+                    // For visualization, we use (x, z2) where x is average of input
+                    const avgX = (point.input[0] + point.input[1]) / 2;
+                    this.drawPoint(this.contexts.outputLinear, point.input, [avgX, point.z2], point.label);
 
                     // Output: show back in input space, colored by prediction
                     this.drawPoint(this.contexts.output, point.input, point.input,
@@ -620,7 +741,7 @@
 
                             // Compute output from hidden activation
                             let z2_out = nn.b2[0][0];
-                            for (let j = 0; j < Math.min(2, nn.hiddenSize); j++) {
+                            for (let j = 0; j < 2; j++) {
                                 z2_out += nn.W2[0][j] * a1[j];
                             }
                             value = 1 / (1 + Math.exp(-z2_out));
@@ -633,10 +754,18 @@
                             // Compute output from these activations
                             let z2_out = nn.b2[0][0];
                             z2_out += nn.W2[0][0] * a1_0;
-                            if (nn.hiddenSize >= 2) {
-                                z2_out += nn.W2[0][1] * a1_1;
-                            }
+                            z2_out += nn.W2[0][1] * a1_1;
                             value = 1 / (1 + Math.exp(-z2_out));
+
+                        } else if (layer === 'outputLinear') {
+                            // For output linear: interpret pixel as (avgX, z2) coordinates
+                            // We show z2 value on y-axis, avgX on x-axis
+                            const avgX = ((px - 200) / (200 / scale));
+                            const z2_val = (-(py - 200) / (200 / scale));
+
+                            // Decision boundary is at z2 = 0 (which gives sigmoid(0) = 0.5)
+                            // Color based on z2 value
+                            value = 1 / (1 + Math.exp(-z2_val));
                         } else {
                             value = 0.5;
                         }
@@ -703,15 +832,16 @@
         
         // Main application
         let nn, data, visualizer;
-        
+
         function init() {
             visualizer = new Visualizer();
-            
-            const hiddenNeurons = parseInt(document.getElementById('hiddenNeurons').value);
+
+            // Fixed to 2 hidden neurons for 2D visualization
+            const hiddenNeurons = 2;
             const activation = document.getElementById('activation').value;
-            
+
             nn = new NeuralNetwork(2, hiddenNeurons, 1, activation);
-            
+
             const datasetType = document.getElementById('dataset').value;
             switch(datasetType) {
                 case 'xor': data = generateXOR(150); break;
@@ -719,31 +849,27 @@
                 case 'spiral': data = generateSpiral(150); break;
                 case 'linear': data = generateLinear(150); break;
             }
-            
+
             visualizer.drawData(data, nn);
         }
-        
+
         document.getElementById('trainBtn').addEventListener('click', () => {
             const learningRate = parseFloat(document.getElementById('learningRate').value);
             const inputs = data.map(d => d.x);
             const targets = data.map(d => d.y);
-            
+
             nn.train(inputs, targets, learningRate, 100);
             visualizer.drawData(data, nn);
         });
-        
+
         document.getElementById('resetBtn').addEventListener('click', init);
-        
+
         document.getElementById('dataset').addEventListener('change', init);
-        document.getElementById('hiddenNeurons').addEventListener('change', function() {
-            document.getElementById('neuronCount').textContent = this.value;
-            init();
-        });
         document.getElementById('activation').addEventListener('change', init);
         document.getElementById('learningRate').addEventListener('input', function() {
             document.getElementById('lrValue').textContent = this.value;
         });
-        
+
         // Initialize on load
         window.onload = init;
     </script>

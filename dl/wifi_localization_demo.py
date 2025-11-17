@@ -26,7 +26,7 @@ keras.utils.set_random_seed(42)
 
 # Putanja do CSV fajla sa WiFi podacima
 # Ako fajl ne postoji, koristiće se simulirani podaci
-WIFI_DATA_FILE = "wifi_collected_data.csv"
+WIFI_DATA_FILE = "wifi_data_20251117_171358.csv"
 
 print("Keras verzija:", keras.__version__)
 
@@ -612,7 +612,7 @@ def tune_hyperparameters():
     return results
 
 # Pokreni tuning (opcionalno - može trajati duže)
-tuning_results = tune_hyperparameters()
+#tuning_results = tune_hyperparameters()
 
 print("\n" + "="*70)
 print("DEMO ZAVRŠEN!")

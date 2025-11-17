@@ -17,11 +17,16 @@ import keras
 from keras import layers, models, callbacks, regularizers
 from keras.utils import to_categorical, plot_model
 import warnings
+import os
 warnings.filterwarnings('ignore')
 
 # Postavljanje seed-a za reproducibilnost
 np.random.seed(42)
 keras.utils.set_random_seed(42)
+
+# Putanja do CSV fajla sa WiFi podacima
+# Ako fajl ne postoji, koristiće se simulirani podaci
+WIFI_DATA_FILE = "wifi_collected_data.csv"
 
 print("Keras verzija:", keras.__version__)
 
@@ -29,16 +34,83 @@ print("Keras verzija:", keras.__version__)
 # 1. UČITAVANJE I EKSPLORACIJA PODATAKA
 # ============================================================================
 
-def download_and_load_data():
+def load_data_from_csv(csv_file):
     """
-    UJIIndoorLoc dataset:
-    - 520 WiFi access point signala (RSSI vrijednosti)
-    - Koordinate: LONGITUDE, LATITUDE
-    - FLOOR (0-4), BUILDINGID (0-2)
-    - ~20,000 uzoraka
-    """
+    Učitavanje podataka iz CSV fajla prikupljenog aplikacijom get_wifi_data.py
 
-    # Za demo, kreiramo simulirani dataset sličan UJIIndoorLoc
+    CSV format:
+    building, floor, room, ap_bssid, ap_ssid, rssi, timestamp
+    """
+    print(f"Učitavanje podataka iz CSV fajla: {csv_file}")
+
+    # Učitaj CSV
+    df_raw = pd.read_csv(csv_file)
+
+    print(f"Učitano {len(df_raw)} RSSI mjerenja iz CSV fajla")
+
+    # Grupiranje po lokaciji i kreiranje WiFi fingerprint-a
+    # Za svaku lokaciju (building, floor, room), kreiramo feature vektor sa RSSI vrijednostima
+
+    # Enkodiranje zgrada i spratova
+    building_encoder = LabelEncoder()
+    floor_encoder = LabelEncoder()
+
+    df_raw['BUILDINGID'] = building_encoder.fit_transform(df_raw['building'])
+    df_raw['FLOOR_ENCODED'] = floor_encoder.fit_transform(df_raw['floor'])
+
+    # Grupe po lokaciji
+    location_groups = df_raw.groupby(['building', 'floor', 'room', 'BUILDINGID', 'FLOOR_ENCODED'])
+
+    # Kreiranje WiFi fingerprint-a
+    all_aps = df_raw['ap_bssid'].unique()
+    print(f"Pronađeno {len(all_aps)} jedinstvenih WiFi pristupnih tačaka")
+
+    # Lista podataka za finalni DataFrame
+    data_rows = []
+
+    for (building, floor, room, building_id, floor_id), group in location_groups:
+        # Kreiraj feature vektor za ovu lokaciju
+        wifi_features = {}
+
+        # Za svaki AP, izračunaj srednju RSSI vrijednost
+        ap_rssi = group.groupby('ap_bssid')['rssi'].mean()
+
+        for ap in all_aps:
+            col_name = f'WAP_{ap.replace(":", "")}'  # Ime kolone
+            wifi_features[col_name] = ap_rssi.get(ap, -100)  # -100 ako AP nije detektovan
+
+        # Dodaj prostorne informacije
+        # Za koordinate, koristimo enkodovane ID-jeve sa random offsetom
+        # (pošto nemamo GPS koordinate)
+        longitude = building_id * 100 + floor_id * 10 + np.random.randn() * 2
+        latitude = building_id * 80 + floor_id * 8 + np.random.randn() * 2
+
+        wifi_features['LONGITUDE'] = longitude
+        wifi_features['LATITUDE'] = latitude
+        wifi_features['FLOOR'] = floor_id
+        wifi_features['BUILDINGID'] = building_id
+
+        data_rows.append(wifi_features)
+
+    # Kreiraj DataFrame
+    df = pd.DataFrame(data_rows)
+
+    # Sortiraj kolone: prvo WAP kolone, zatim ostalo
+    wap_cols = sorted([col for col in df.columns if col.startswith('WAP_')])
+    other_cols = ['LONGITUDE', 'LATITUDE', 'FLOOR', 'BUILDINGID']
+    df = df[wap_cols + other_cols]
+
+    print(f"Kreiran dataset sa {len(df)} lokacija i {len(wap_cols)} WiFi pristupnih tačaka")
+    print(f"Zgrade: {building_encoder.classes_}")
+    print(f"Spratovi: {floor_encoder.classes_}")
+
+    return df
+
+
+def generate_simulated_data():
+    """
+    Generisanje simuliranog dataseta (fallback ako CSV ne postoji)
+    """
     print("Kreiranje simuliranog WiFi Indoor Positioning dataseta...")
 
     n_samples = 5000
@@ -69,6 +141,29 @@ def download_and_load_data():
     df['BUILDINGID'] = buildings
 
     return df
+
+
+def download_and_load_data():
+    """
+    Učitavanje WiFi positioning dataseta.
+
+    Prioritet:
+    1. Ako postoji WIFI_DATA_FILE, učitaj podatke iz CSV-a
+    2. Inače, generiši simulirane podatke
+    """
+
+    # Proveri da li postoji CSV fajl
+    if os.path.exists(WIFI_DATA_FILE):
+        try:
+            return load_data_from_csv(WIFI_DATA_FILE)
+        except Exception as e:
+            print(f"Greška pri učitavanju CSV fajla: {e}")
+            print("Koristiću simulirane podatke...")
+            return generate_simulated_data()
+    else:
+        print(f"CSV fajl '{WIFI_DATA_FILE}' ne postoji.")
+        print("Koristiću simulirane podatke...")
+        return generate_simulated_data()
 
 # Učitavanje podataka
 df = download_and_load_data()

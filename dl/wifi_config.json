@@ -1,0 +1,55 @@
+{
+  "buildings": [
+    {
+      "name": "Zgrada A",
+      "floors": [
+        {
+          "name": "Prizemlje",
+          "rooms": ["Ulaz", "Recepcija", "Sala 101", "Sala 102", "WC"]
+        },
+        {
+          "name": "Sprat 1",
+          "rooms": ["Kancelarija 201", "Kancelarija 202", "Sala za sastanke", "Laboratorija 1", "WC"]
+        },
+        {
+          "name": "Sprat 2",
+          "rooms": ["Kancelarija 301", "Kancelarija 302", "Kancelarija 303", "Laboratorija 2", "WC"]
+        }
+      ]
+    },
+    {
+      "name": "Zgrada B",
+      "floors": [
+        {
+          "name": "Prizemlje",
+          "rooms": ["Ulaz", "Kafeterija", "Sala 111", "Sala 112", "WC"]
+        },
+        {
+          "name": "Sprat 1",
+          "rooms": ["Učionica 211", "Učionica 212", "Učionica 213", "Biblioteka", "WC"]
+        },
+        {
+          "name": "Sprat 2",
+          "rooms": ["Amfiteatar A", "Amfiteatar B", "Čitaonica", "WC"]
+        },
+        {
+          "name": "Sprat 3",
+          "rooms": ["Arhiva", "Server soba", "Tehničke prostorije", "WC"]
+        }
+      ]
+    },
+    {
+      "name": "Zgrada C",
+      "floors": [
+        {
+          "name": "Prizemlje",
+          "rooms": ["Ulaz", "Garaža", "Magacin", "WC"]
+        },
+        {
+          "name": "Sprat 1",
+          "rooms": ["Laboratorija 3", "Laboratorija 4", "Prostorija za opremu", "WC"]
+        }
+      ]
+    }
+  ]
+}

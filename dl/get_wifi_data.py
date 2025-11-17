@@ -23,6 +23,9 @@ class WiFiDataCollector:
         self.root.title("WiFi Data Collector")
         self.root.geometry("900x700")
 
+        # Kreiranje menija
+        self.create_menu()
+
         # Učitavanje konfiguracije
         self.config = self.load_config()
 
@@ -49,6 +52,23 @@ class WiFiDataCollector:
             messagebox.showerror("Greška",
                                "Greška pri parsiranju JSON konfiguracionog fajla")
             return {"buildings": []}
+
+    def create_menu(self):
+        """Kreiranje menija"""
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        # Help meni
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="About", command=self.show_about)
+
+    def show_about(self):
+        """Prikaz About dijaloga"""
+        messagebox.showinfo("About",
+                           "Mašinsko učenje i inteligentno upravljanje\n\n"
+                           "Red. prof. dr Samim Konjicija\n\n"
+                           "Novembar 2025. godine")
 
     def create_gui(self):
         """Kreiranje GUI elemenata"""
@@ -185,26 +205,39 @@ class WiFiDataCollector:
                 networks = []
                 for line in result.stdout.strip().split('\n'):
                     if line:
-                        parts = line.split(':')
-                        if len(parts) >= 3:
-                            ssid = parts[0] if parts[0] else "(hidden)"
-                            bssid = parts[1]
-                            signal = parts[2]
+                        # nmcli format: SSID:BSSID:SIGNAL
+                        # Problem: BSSID sadrži ':' (format XX:XX:XX:XX:XX:XX)
+                        # Rješenje: split od kraja da izvučemo SIGNAL, pa onda BSSID
 
-                            # Konverzija signala u RSSI (dBm)
-                            # nmcli vraća signal u procentima (0-100)
-                            # Aproksimativna konverzija: RSSI ≈ -100 + signal/2
-                            try:
-                                signal_percent = int(signal)
-                                rssi = -100 + (signal_percent / 2)
-                            except ValueError:
-                                rssi = -100
+                        # Split od kraja da izvučemo SIGNAL (poslednji dio)
+                        temp_parts = line.rsplit(':', 1)
+                        if len(temp_parts) == 2:
+                            signal = temp_parts[1]
+                            ssid_bssid = temp_parts[0]
 
-                            networks.append({
-                                'ssid': ssid,
-                                'bssid': bssid,
-                                'rssi': int(rssi)
-                            })
+                            # BSSID je poslednji 6 dijelova odvojenih sa ':' (XX:XX:XX:XX:XX:XX)
+                            all_parts = ssid_bssid.split(':')
+                            if len(all_parts) >= 6:
+                                # Poslednji 6 dijelova su BSSID
+                                bssid = ':'.join(all_parts[-6:])
+                                # Sve ostalo je SSID
+                                ssid = ':'.join(all_parts[:-6]) if len(all_parts) > 6 else "(hidden)"
+                                ssid = ssid if ssid else "(hidden)"
+
+                                # Konverzija signala u RSSI (dBm)
+                                # nmcli vraća signal u procentima (0-100)
+                                # Konverzija: RSSI = signal/2 - 100 (daje raspon -100 do -50 dBm)
+                                try:
+                                    signal_percent = int(signal)
+                                    rssi = (signal_percent // 2) - 100
+                                except ValueError:
+                                    rssi = -100
+
+                                networks.append({
+                                    'ssid': ssid,
+                                    'bssid': bssid,
+                                    'rssi': rssi
+                                })
 
                 return networks
 
@@ -327,13 +360,13 @@ class WiFiDataCollector:
                 break
 
     def add_data_to_tree(self, timestamp, building, floor, room, ssid, bssid, rssi):
-        """Dodavanje podataka u treeview"""
-        self.data_tree.insert("", "end", values=(timestamp, building, floor, room,
-                                                ssid, bssid, rssi))
-        # Auto-scroll do dna
+        """Dodavanje podataka u treeview (najnoviji na vrhu)"""
+        self.data_tree.insert("", 0, values=(timestamp, building, floor, room,
+                                            ssid, bssid, rssi))
+        # Auto-scroll na vrh (najnoviji podaci)
         children = self.data_tree.get_children()
         if children:
-            self.data_tree.see(children[-1])
+            self.data_tree.see(children[0])
 
     def start_collection(self):
         """Započinjanje prikupljanja podataka"""

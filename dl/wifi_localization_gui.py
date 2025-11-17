@@ -30,7 +30,9 @@ class WiFiLocalizationGUI:
         self.scaler = None
         self.num_buildings = None
         self.num_floors = None
+        self.num_rooms = None
         self.wifi_cols = None
+        self.encoders = None
         self.model_loaded = False
 
         # Lokalizacija
@@ -80,7 +82,7 @@ class WiFiLocalizationGUI:
 4. REZULTATI:
    - Zgrada: Predviđena zgrada
    - Sprat: Predviđeni sprat
-   - Koordinate: Predviđene longitude/latitude koordinate
+   - Prostorija: Predviđena prostorija
    - Tačnost: Vjerovatnoća predvikcije
 
 NAPOMENA: Aplikacija koristi nmcli komandu za skeniranje
@@ -180,16 +182,17 @@ simulirani podaci za testiranje."""
         self.floor_conf = ttk.Label(result_grid, text="N/A", font=("Arial", 10))
         self.floor_conf.grid(row=1, column=3, sticky="w", padx=10, pady=5)
 
-        # Koordinate
-        ttk.Label(result_grid, text="Longitude:", font=("Arial", 12, "bold")).grid(
+        # Prostorija
+        ttk.Label(result_grid, text="Prostorija:", font=("Arial", 12, "bold")).grid(
             row=2, column=0, sticky="w", padx=10, pady=5)
-        self.lon_result = ttk.Label(result_grid, text="N/A", font=("Arial", 12))
-        self.lon_result.grid(row=2, column=1, sticky="w", padx=10, pady=5)
+        self.room_result = ttk.Label(result_grid, text="N/A",
+                                     font=("Arial", 12), foreground="purple")
+        self.room_result.grid(row=2, column=1, sticky="w", padx=10, pady=5)
 
-        ttk.Label(result_grid, text="Latitude:", font=("Arial", 12, "bold")).grid(
-            row=3, column=0, sticky="w", padx=10, pady=5)
-        self.lat_result = ttk.Label(result_grid, text="N/A", font=("Arial", 12))
-        self.lat_result.grid(row=3, column=1, sticky="w", padx=10, pady=5)
+        ttk.Label(result_grid, text="Tačnost:", font=("Arial", 10)).grid(
+            row=2, column=2, sticky="w", padx=10, pady=5)
+        self.room_conf = ttk.Label(result_grid, text="N/A", font=("Arial", 10))
+        self.room_conf.grid(row=2, column=3, sticky="w", padx=10, pady=5)
 
         # === Log/history tabela ===
         log_frame = ttk.LabelFrame(self.root, text="Historija Lokalizacija", padding=10)
@@ -200,7 +203,7 @@ simulirani podaci za testiranje."""
         scrollbar.pack(side="right", fill="y")
 
         # Treeview za historiju
-        columns = ("Vrijeme", "Zgrada", "Sprat", "Longitude", "Latitude")
+        columns = ("Vrijeme", "Zgrada", "Sprat", "Prostorija")
         self.history_tree = ttk.Treeview(log_frame, columns=columns, show="headings",
                                          yscrollcommand=scrollbar.set, height=6)
         scrollbar.config(command=self.history_tree.yview)
@@ -209,6 +212,8 @@ simulirani podaci za testiranje."""
             self.history_tree.heading(col, text=col)
             if col == "Vrijeme":
                 self.history_tree.column(col, width=100)
+            elif col == "Prostorija":
+                self.history_tree.column(col, width=200)
             else:
                 self.history_tree.column(col, width=120)
 
@@ -242,7 +247,9 @@ simulirani podaci za testiranje."""
             self.scaler = metadata['scaler']
             self.num_buildings = metadata['num_buildings']
             self.num_floors = metadata['num_floors']
+            self.num_rooms = metadata['num_rooms']
             self.wifi_cols = metadata['wifi_cols']
+            self.encoders = metadata['encoders']
 
             self.model_loaded = True
 
@@ -341,22 +348,27 @@ simulirani podaci za testiranje."""
                 predictions = self.model.predict(X_normalized, verbose=0)
                 building_pred = predictions[0]
                 floor_pred = predictions[1]
-                coords_pred = predictions[2]
+                room_pred = predictions[2]
 
                 # Rezultati
                 building_id = np.argmax(building_pred[0])
                 building_conf = building_pred[0][building_id]
                 floor_id = np.argmax(floor_pred[0])
                 floor_conf = floor_pred[0][floor_id]
-                longitude = coords_pred[0][0]
-                latitude = coords_pred[0][1]
+                room_id = np.argmax(room_pred[0])
+                room_conf = room_pred[0][room_id]
+
+                # Dekodiranje naziva lokacije
+                building_name = self.encoders['building'].classes_[building_id]
+                floor_name = self.encoders['floor'].classes_[floor_id]
+                room_name = self.encoders['room'].classes_[room_id]
 
                 # Ažuriranje GUI-a (thread-safe)
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 self.root.after(0, self.update_results,
-                              building_id, building_conf,
-                              floor_id, floor_conf,
-                              longitude, latitude,
+                              building_id, building_name, building_conf,
+                              floor_id, floor_name, floor_conf,
+                              room_id, room_name, room_conf,
                               timestamp)
 
                 # Čekanje za sledeće mjerenje
@@ -368,26 +380,26 @@ simulirani podaci za testiranje."""
                 self.root.after(0, self.stop_localization)
                 break
 
-    def update_results(self, building_id, building_conf, floor_id, floor_conf,
-                      longitude, latitude, timestamp):
+    def update_results(self, building_id, building_name, building_conf,
+                      floor_id, floor_name, floor_conf,
+                      room_id, room_name, room_conf, timestamp):
         """Ažuriranje prikaza rezultata"""
         # Ažuriraj labele
-        self.building_result.config(text=f"Zgrada {building_id}")
+        self.building_result.config(text=f"{building_name}")
         self.building_conf.config(text=f"{building_conf*100:.1f}%")
 
-        self.floor_result.config(text=f"Sprat {floor_id}")
+        self.floor_result.config(text=f"{floor_name}")
         self.floor_conf.config(text=f"{floor_conf*100:.1f}%")
 
-        self.lon_result.config(text=f"{longitude:.2f}")
-        self.lat_result.config(text=f"{latitude:.2f}")
+        self.room_result.config(text=f"{room_name}")
+        self.room_conf.config(text=f"{room_conf*100:.1f}%")
 
         # Dodaj u historiju (najnoviji na vrhu)
         self.history_tree.insert("", 0, values=(
             timestamp,
-            f"Zgrada {building_id}",
-            f"Sprat {floor_id}",
-            f"{longitude:.2f}",
-            f"{latitude:.2f}"
+            building_name,
+            floor_name,
+            room_name
         ))
 
         # Ograniči broj redova u historiji

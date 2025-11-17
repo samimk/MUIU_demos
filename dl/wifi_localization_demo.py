@@ -203,6 +203,12 @@ y_latitude = df['LATITUDE'].values
 print(f"\nBroj WiFi AP-ova: {len(wifi_cols)}")
 print(f"Raspon RSSI vrijednosti: [{X_wifi.min():.2f}, {X_wifi.max():.2f}]")
 
+# Dinamički odrediti broj klasa
+num_buildings = len(np.unique(y_building))
+num_floors = len(np.unique(y_floor))
+print(f"\nBroj jedinstvenih zgrada: {num_buildings}")
+print(f"Broj jedinstvenih spratova: {num_floors}")
+
 # Normalizacija WiFi signala
 # RSSI je u rangu -100 do 0, normalizujemo na 0-1
 scaler = StandardScaler()
@@ -212,8 +218,8 @@ print(f"\nNakon normalizacije:")
 print(f"Mean: {X_normalized.mean():.4f}, Std: {X_normalized.std():.4f}")
 
 # One-hot encoding za klasifikacione target-e
-y_building_cat = to_categorical(y_building, num_classes=3)
-y_floor_cat = to_categorical(y_floor, num_classes=5)
+y_building_cat = to_categorical(y_building, num_classes=num_buildings)
+y_floor_cat = to_categorical(y_floor, num_classes=num_floors)
 
 # ============================================================================
 # 3. PODJELA NA TRAIN/VALIDATION/TEST SKUPOVE
@@ -248,11 +254,11 @@ print("\n" + "="*70)
 print("KREIRANJE MODELA")
 print("="*70)
 
-def create_multi_output_model(input_dim, learning_rate=0.001, dropout_rate=0.3):
+def create_multi_output_model(input_dim, num_buildings, num_floors, learning_rate=0.001, dropout_rate=0.3):
     """
     Multi-output model sa tri izlaza:
-    1. Klasifikacija zgrade (3 klase)
-    2. Klasifikacija sprata (5 klasa)
+    1. Klasifikacija zgrade (dinamički broj klasa)
+    2. Klasifikacija sprata (dinamički broj klasa)
     3. Regresija koordinata (longitude, latitude)
     """
 
@@ -275,11 +281,11 @@ def create_multi_output_model(input_dim, learning_rate=0.001, dropout_rate=0.3):
 
     # Output 1: Building classification
     building_branch = layers.Dense(32, activation='relu', name='building_dense')(x)
-    building_output = layers.Dense(3, activation='softmax', name='building_output')(building_branch)
+    building_output = layers.Dense(num_buildings, activation='softmax', name='building_output')(building_branch)
 
     # Output 2: Floor classification
     floor_branch = layers.Dense(32, activation='relu', name='floor_dense')(x)
-    floor_output = layers.Dense(5, activation='softmax', name='floor_output')(floor_branch)
+    floor_output = layers.Dense(num_floors, activation='softmax', name='floor_output')(floor_branch)
 
     # Output 3: Coordinate regression
     coord_branch = layers.Dense(32, activation='relu', name='coord_dense')(x)
@@ -316,6 +322,8 @@ def create_multi_output_model(input_dim, learning_rate=0.001, dropout_rate=0.3):
 # Kreiranje modela
 model = create_multi_output_model(
     input_dim=X_train.shape[1],
+    num_buildings=num_buildings,
+    num_floors=num_floors,
     learning_rate=0.001,
     dropout_rate=0.3
 )
@@ -399,8 +407,11 @@ building_accuracy = accuracy_score(building_true_classes, building_pred_classes)
 print(f"\n--- KLASIFIKACIJA ZGRADE ---")
 print(f"Tačnost: {building_accuracy:.4f}")
 print("\nClassification Report:")
+# Generiši target_names samo za klase koje postoje u test podacima
+unique_building_classes = np.unique(np.concatenate([building_true_classes, building_pred_classes]))
+building_target_names = [f'Building {i}' for i in unique_building_classes]
 print(classification_report(building_true_classes, building_pred_classes,
-                          target_names=[f'Building {i}' for i in range(3)]))
+                          target_names=building_target_names, labels=unique_building_classes))
 
 # Evaluacija klasifikacije sprata
 floor_pred_classes = np.argmax(y_pred_floor, axis=1)
@@ -410,8 +421,11 @@ floor_accuracy = accuracy_score(floor_true_classes, floor_pred_classes)
 print(f"\n--- KLASIFIKACIJA SPRATA ---")
 print(f"Tačnost: {floor_accuracy:.4f}")
 print("\nClassification Report:")
+# Generiši target_names samo za klase koje postoje u test podacima
+unique_floor_classes = np.unique(np.concatenate([floor_true_classes, floor_pred_classes]))
+floor_target_names = [f'Floor {i}' for i in unique_floor_classes]
 print(classification_report(floor_true_classes, floor_pred_classes,
-                          target_names=[f'Floor {i}' for i in range(5)]))
+                          target_names=floor_target_names, labels=unique_floor_classes))
 
 # Evaluacija regresije koordinata
 coord_mae = mean_absolute_error(y_pred_coords,
@@ -466,20 +480,20 @@ plt.grid(True, alpha=0.3)
 
 # 4. Confusion matrix - Building
 ax4 = plt.subplot(3, 3, 4)
-cm_building = confusion_matrix(building_true_classes, building_pred_classes)
+cm_building = confusion_matrix(building_true_classes, building_pred_classes, labels=unique_building_classes)
 sns.heatmap(cm_building, annot=True, fmt='d', cmap='Blues',
-            xticklabels=[f'B{i}' for i in range(3)],
-            yticklabels=[f'B{i}' for i in range(3)])
+            xticklabels=[f'B{i}' for i in unique_building_classes],
+            yticklabels=[f'B{i}' for i in unique_building_classes])
 plt.title('Confusion Matrix - Zgrada')
 plt.ylabel('True')
 plt.xlabel('Predicted')
 
 # 5. Confusion matrix - Floor
 ax5 = plt.subplot(3, 3, 5)
-cm_floor = confusion_matrix(floor_true_classes, floor_pred_classes)
+cm_floor = confusion_matrix(floor_true_classes, floor_pred_classes, labels=unique_floor_classes)
 sns.heatmap(cm_floor, annot=True, fmt='d', cmap='Greens',
-            xticklabels=[f'F{i}' for i in range(5)],
-            yticklabels=[f'F{i}' for i in range(5)])
+            xticklabels=[f'F{i}' for i in unique_floor_classes],
+            yticklabels=[f'F{i}' for i in unique_floor_classes])
 plt.title('Confusion Matrix - Sprat')
 plt.ylabel('True')
 plt.xlabel('Predicted')
@@ -559,6 +573,8 @@ def tune_hyperparameters():
             # Kreiraj model
             tuning_model = create_multi_output_model(
                 input_dim=X_train.shape[1],
+                num_buildings=num_buildings,
+                num_floors=num_floors,
                 learning_rate=lr,
                 dropout_rate=dropout
             )

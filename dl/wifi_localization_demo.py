@@ -1,8 +1,8 @@
 """
 WiFi Indoor Positioning System - Kompletna Implementacija
 =========================================================
-Dataset: UJIIndoorLoc (WiFi fingerprinting za pozicioniranje u zgradi)
-Cilj: Predviđanje pozicije (zgrada, sprat, koordinate) na osnovu WiFi signala
+Dataset: WiFi fingerprinting za pozicioniranje u zgradi
+Cilj: Predviđanje pozicije (zgrada, sprat, prostorija) na osnovu WiFi signala
 """
 
 import numpy as np
@@ -55,15 +55,17 @@ def load_data_from_csv(csv_file):
     # Grupiranje po lokaciji i kreiranje WiFi fingerprint-a
     # Za svaku lokaciju (building, floor, room), kreiramo feature vektor sa RSSI vrijednostima
 
-    # Enkodiranje zgrada i spratova
+    # Enkodiranje zgrada, spratova i prostorija
     building_encoder = LabelEncoder()
     floor_encoder = LabelEncoder()
+    room_encoder = LabelEncoder()
 
     df_raw['BUILDINGID'] = building_encoder.fit_transform(df_raw['building'])
     df_raw['FLOOR_ENCODED'] = floor_encoder.fit_transform(df_raw['floor'])
+    df_raw['ROOM_ENCODED'] = room_encoder.fit_transform(df_raw['room'])
 
     # Grupe po lokaciji
-    location_groups = df_raw.groupby(['building', 'floor', 'room', 'BUILDINGID', 'FLOOR_ENCODED'])
+    location_groups = df_raw.groupby(['building', 'floor', 'room', 'BUILDINGID', 'FLOOR_ENCODED', 'ROOM_ENCODED'])
 
     # Kreiranje WiFi fingerprint-a
     all_aps = df_raw['ap_bssid'].unique()
@@ -72,7 +74,7 @@ def load_data_from_csv(csv_file):
     # Lista podataka za finalni DataFrame
     data_rows = []
 
-    for (building, floor, room, building_id, floor_id), group in location_groups:
+    for (building, floor, room, building_id, floor_id, room_id), group in location_groups:
         # Kreiraj feature vektor za ovu lokaciju
         wifi_features = {}
 
@@ -83,16 +85,10 @@ def load_data_from_csv(csv_file):
             col_name = f'WAP_{ap.replace(":", "")}'  # Ime kolone
             wifi_features[col_name] = ap_rssi.get(ap, -100)  # -100 ako AP nije detektovan
 
-        # Dodaj prostorne informacije
-        # Za koordinate, koristimo enkodovane ID-jeve sa random offsetom
-        # (pošto nemamo GPS koordinate)
-        longitude = building_id * 100 + floor_id * 10 + np.random.randn() * 2
-        latitude = building_id * 80 + floor_id * 8 + np.random.randn() * 2
-
-        wifi_features['LONGITUDE'] = longitude
-        wifi_features['LATITUDE'] = latitude
-        wifi_features['FLOOR'] = floor_id
+        # Dodaj lokacijske informacije
         wifi_features['BUILDINGID'] = building_id
+        wifi_features['FLOOR'] = floor_id
+        wifi_features['ROOMID'] = room_id
 
         data_rows.append(wifi_features)
 
@@ -101,14 +97,22 @@ def load_data_from_csv(csv_file):
 
     # Sortiraj kolone: prvo WAP kolone, zatim ostalo
     wap_cols = sorted([col for col in df.columns if col.startswith('WAP_')])
-    other_cols = ['LONGITUDE', 'LATITUDE', 'FLOOR', 'BUILDINGID']
+    other_cols = ['BUILDINGID', 'FLOOR', 'ROOMID']
     df = df[wap_cols + other_cols]
 
     print(f"Kreiran dataset sa {len(df)} lokacija i {len(wap_cols)} WiFi pristupnih tačaka")
     print(f"Zgrade: {building_encoder.classes_}")
     print(f"Spratovi: {floor_encoder.classes_}")
+    print(f"Prostorije: {room_encoder.classes_}")
 
-    return df
+    # Spremanje encoder-a za kasnije dekodiranje
+    encoders = {
+        'building': building_encoder,
+        'floor': floor_encoder,
+        'room': room_encoder
+    }
+
+    return df, encoders
 
 
 def generate_simulated_data():
@@ -128,23 +132,34 @@ def generate_simulated_data():
     mask = np.random.random((n_samples, n_wifi_aps)) < 0.3
     wifi_signals[mask] = -100
 
-    # Simulirane prostorne informacije
+    # Simulirane lokacijske informacije
     buildings = np.random.randint(0, 3, n_samples)  # 3 zgrade
     floors = np.random.randint(0, 5, n_samples)     # 5 spratova
-
-    # Koordinate zavisne od zgrade i sprata
-    longitude = buildings * 100 + floors * 10 + np.random.randn(n_samples) * 5
-    latitude = buildings * 80 + floors * 8 + np.random.randn(n_samples) * 4
+    rooms = np.random.randint(0, 10, n_samples)     # 10 prostorija
 
     # Kreiranje DataFrame-a
     wifi_cols = [f'WAP{i:03d}' for i in range(n_wifi_aps)]
     df = pd.DataFrame(wifi_signals, columns=wifi_cols)
-    df['LONGITUDE'] = longitude
-    df['LATITUDE'] = latitude
-    df['FLOOR'] = floors
     df['BUILDINGID'] = buildings
+    df['FLOOR'] = floors
+    df['ROOMID'] = rooms
 
-    return df
+    # Kreiranje dummy encoder-a za simulirane podatke
+    building_encoder = LabelEncoder()
+    floor_encoder = LabelEncoder()
+    room_encoder = LabelEncoder()
+
+    building_encoder.fit(['Building 0', 'Building 1', 'Building 2'])
+    floor_encoder.fit(['Floor 0', 'Floor 1', 'Floor 2', 'Floor 3', 'Floor 4'])
+    room_encoder.fit([f'Room {i}' for i in range(10)])
+
+    encoders = {
+        'building': building_encoder,
+        'floor': floor_encoder,
+        'room': room_encoder
+    }
+
+    return df, encoders
 
 
 def download_and_load_data():
@@ -170,7 +185,7 @@ def download_and_load_data():
         return generate_simulated_data()
 
 # Učitavanje podataka
-df = download_and_load_data()
+df, encoders = download_and_load_data()
 print(f"\nDimenzije dataseta: {df.shape}")
 print(f"\nPrvih 5 redova:")
 print(df.head())
@@ -201,8 +216,7 @@ X_wifi = df[wifi_cols].values
 # Target varijable
 y_building = df['BUILDINGID'].values
 y_floor = df['FLOOR'].values
-y_longitude = df['LONGITUDE'].values
-y_latitude = df['LATITUDE'].values
+y_room = df['ROOMID'].values
 
 print(f"\nBroj WiFi AP-ova: {len(wifi_cols)}")
 print(f"Raspon RSSI vrijednosti: [{X_wifi.min():.2f}, {X_wifi.max():.2f}]")
@@ -210,8 +224,10 @@ print(f"Raspon RSSI vrijednosti: [{X_wifi.min():.2f}, {X_wifi.max():.2f}]")
 # Dinamički odrediti broj klasa
 num_buildings = len(np.unique(y_building))
 num_floors = len(np.unique(y_floor))
+num_rooms = len(np.unique(y_room))
 print(f"\nBroj jedinstvenih zgrada: {num_buildings}")
 print(f"Broj jedinstvenih spratova: {num_floors}")
+print(f"Broj jedinstvenih prostorija: {num_rooms}")
 
 # Normalizacija WiFi signala
 # RSSI je u rangu -100 do 0, normalizujemo na 0-1
@@ -224,6 +240,7 @@ print(f"Mean: {X_normalized.mean():.4f}, Std: {X_normalized.std():.4f}")
 # One-hot encoding za klasifikacione target-e
 y_building_cat = to_categorical(y_building, num_classes=num_buildings)
 y_floor_cat = to_categorical(y_floor, num_classes=num_floors)
+y_room_cat = to_categorical(y_room, num_classes=num_rooms)
 
 # ============================================================================
 # 3. PODJELA NA TRAIN/VALIDATION/TEST SKUPOVE
@@ -235,14 +252,14 @@ print("="*70)
 
 # Train: 70%, Validation: 15%, Test: 15%
 X_temp, X_test, y_b_temp, y_b_test, y_f_temp, y_f_test, \
-    y_lon_temp, y_lon_test, y_lat_temp, y_lat_test = train_test_split(
-    X_normalized, y_building_cat, y_floor_cat, y_longitude, y_latitude,
+    y_r_temp, y_r_test = train_test_split(
+    X_normalized, y_building_cat, y_floor_cat, y_room_cat,
     test_size=0.15, random_state=42, stratify=y_building
 )
 
 X_train, X_val, y_b_train, y_b_val, y_f_train, y_f_val, \
-    y_lon_train, y_lon_val, y_lat_train, y_lat_val = train_test_split(
-    X_temp, y_b_temp, y_f_temp, y_lon_temp, y_lat_temp,
+    y_r_train, y_r_val = train_test_split(
+    X_temp, y_b_temp, y_f_temp, y_r_temp,
     test_size=0.176, random_state=42  # 0.176 * 0.85 ≈ 0.15
 )
 
@@ -258,12 +275,12 @@ print("\n" + "="*70)
 print("KREIRANJE MODELA")
 print("="*70)
 
-def create_multi_output_model(input_dim, num_buildings, num_floors, learning_rate=0.001, dropout_rate=0.3):
+def create_multi_output_model(input_dim, num_buildings, num_floors, num_rooms, learning_rate=0.001, dropout_rate=0.3):
     """
     Multi-output model sa tri izlaza:
     1. Klasifikacija zgrade (dinamički broj klasa)
     2. Klasifikacija sprata (dinamički broj klasa)
-    3. Regresija koordinata (longitude, latitude)
+    3. Klasifikacija prostorije (dinamički broj klasa)
     """
 
     # Input layer
@@ -291,14 +308,14 @@ def create_multi_output_model(input_dim, num_buildings, num_floors, learning_rat
     floor_branch = layers.Dense(32, activation='relu', name='floor_dense')(x)
     floor_output = layers.Dense(num_floors, activation='softmax', name='floor_output')(floor_branch)
 
-    # Output 3: Coordinate regression
-    coord_branch = layers.Dense(32, activation='relu', name='coord_dense')(x)
-    coord_output = layers.Dense(2, activation='linear', name='coord_output')(coord_branch)
+    # Output 3: Room classification
+    room_branch = layers.Dense(32, activation='relu', name='room_dense')(x)
+    room_output = layers.Dense(num_rooms, activation='softmax', name='room_output')(room_branch)
 
     # Kreiranje modela
     model = models.Model(
         inputs=inputs,
-        outputs=[building_output, floor_output, coord_output]
+        outputs=[building_output, floor_output, room_output]
     )
 
     # Kompilacija
@@ -307,17 +324,17 @@ def create_multi_output_model(input_dim, num_buildings, num_floors, learning_rat
         loss={
             'building_output': 'categorical_crossentropy',
             'floor_output': 'categorical_crossentropy',
-            'coord_output': 'mse'
+            'room_output': 'categorical_crossentropy'
         },
         loss_weights={
             'building_output': 1.0,
             'floor_output': 1.0,
-            'coord_output': 0.1  # Manja težina za regresiju
+            'room_output': 1.0
         },
         metrics={
             'building_output': ['accuracy'],
             'floor_output': ['accuracy'],
-            'coord_output': ['mae']
+            'room_output': ['accuracy']
         }
     )
 
@@ -328,6 +345,7 @@ model = create_multi_output_model(
     input_dim=X_train.shape[1],
     num_buildings=num_buildings,
     num_floors=num_floors,
+    num_rooms=num_rooms,
     learning_rate=0.001,
     dropout_rate=0.3
 )
@@ -347,13 +365,13 @@ print("="*70)
 y_train = {
     'building_output': y_b_train,
     'floor_output': y_f_train,
-    'coord_output': np.column_stack([y_lon_train, y_lat_train])
+    'room_output': y_r_train
 }
 
 y_val = {
     'building_output': y_b_val,
     'floor_output': y_f_val,
-    'coord_output': np.column_stack([y_lon_val, y_lat_val])
+    'room_output': y_r_val
 }
 
 # Callbacks
@@ -399,7 +417,9 @@ model_metadata = {
     'scaler': scaler,
     'num_buildings': num_buildings,
     'num_floors': num_floors,
-    'wifi_cols': wifi_cols
+    'num_rooms': num_rooms,
+    'wifi_cols': wifi_cols,
+    'encoders': encoders
 }
 
 metadata_file = TRAINED_ANN_FILE.replace('.keras', '_metadata.pkl')
@@ -419,14 +439,14 @@ print("="*70)
 y_test = {
     'building_output': y_b_test,
     'floor_output': y_f_test,
-    'coord_output': np.column_stack([y_lon_test, y_lat_test])
+    'room_output': y_r_test
 }
 
 # Predikcija
 predictions = model.predict(X_test)
 y_pred_building = predictions[0]
 y_pred_floor = predictions[1]
-y_pred_coords = predictions[2]
+y_pred_room = predictions[2]
 
 # Evaluacija klasifikacije zgrade
 building_pred_classes = np.argmax(y_pred_building, axis=1)
@@ -456,15 +476,19 @@ floor_target_names = [f'Floor {i}' for i in unique_floor_classes]
 print(classification_report(floor_true_classes, floor_pred_classes,
                           target_names=floor_target_names, labels=unique_floor_classes))
 
-# Evaluacija regresije koordinata
-coord_mae = mean_absolute_error(y_pred_coords,
-                                np.column_stack([y_lon_test, y_lat_test]))
-coord_rmse = np.sqrt(mean_squared_error(y_pred_coords,
-                                        np.column_stack([y_lon_test, y_lat_test])))
+# Evaluacija klasifikacije prostorije
+room_pred_classes = np.argmax(y_pred_room, axis=1)
+room_true_classes = np.argmax(y_r_test, axis=1)
+room_accuracy = accuracy_score(room_true_classes, room_pred_classes)
 
-print(f"\n--- REGRESIJA KOORDINATA ---")
-print(f"Mean Absolute Error: {coord_mae:.4f} m")
-print(f"Root Mean Square Error: {coord_rmse:.4f} m")
+print(f"\n--- KLASIFIKACIJA PROSTORIJE ---")
+print(f"Tačnost: {room_accuracy:.4f}")
+print("\nClassification Report:")
+# Generiši target_names samo za klase koje postoje u test podacima
+unique_room_classes = np.unique(np.concatenate([room_true_classes, room_pred_classes]))
+room_target_names = [f'Room {i}' for i in unique_room_classes]
+print(classification_report(room_true_classes, room_pred_classes,
+                          target_names=room_target_names, labels=unique_room_classes))
 
 # ============================================================================
 # 7. VIZUALIZACIJA REZULTATA
@@ -475,10 +499,10 @@ print("VIZUALIZACIJA")
 print("="*70)
 
 # Plotting setup
-fig = plt.figure(figsize=(18, 12))
+fig = plt.figure(figsize=(18, 10))
 
 # 1. Training history - Loss
-ax1 = plt.subplot(3, 3, 1)
+ax1 = plt.subplot(2, 3, 1)
 plt.plot(history.history['loss'], label='Train Loss', linewidth=2)
 plt.plot(history.history['val_loss'], label='Val Loss', linewidth=2)
 plt.xlabel('Epoch')
@@ -488,7 +512,7 @@ plt.legend()
 plt.grid(True, alpha=0.3)
 
 # 2. Building accuracy
-ax2 = plt.subplot(3, 3, 2)
+ax2 = plt.subplot(2, 3, 2)
 plt.plot(history.history['building_output_accuracy'], label='Train', linewidth=2)
 plt.plot(history.history['val_building_output_accuracy'], label='Val', linewidth=2)
 plt.xlabel('Epoch')
@@ -498,7 +522,7 @@ plt.legend()
 plt.grid(True, alpha=0.3)
 
 # 3. Floor accuracy
-ax3 = plt.subplot(3, 3, 3)
+ax3 = plt.subplot(2, 3, 3)
 plt.plot(history.history['floor_output_accuracy'], label='Train', linewidth=2)
 plt.plot(history.history['val_floor_output_accuracy'], label='Val', linewidth=2)
 plt.xlabel('Epoch')
@@ -507,8 +531,18 @@ plt.title('Floor Classification Accuracy')
 plt.legend()
 plt.grid(True, alpha=0.3)
 
-# 4. Confusion matrix - Building
-ax4 = plt.subplot(3, 3, 4)
+# 4. Room accuracy
+ax4 = plt.subplot(2, 3, 4)
+plt.plot(history.history['room_output_accuracy'], label='Train', linewidth=2)
+plt.plot(history.history['val_room_output_accuracy'], label='Val', linewidth=2)
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.title('Room Classification Accuracy')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# 5. Confusion matrix - Building
+ax5 = plt.subplot(2, 3, 5)
 cm_building = confusion_matrix(building_true_classes, building_pred_classes, labels=unique_building_classes)
 sns.heatmap(cm_building, annot=True, fmt='d', cmap='Blues',
             xticklabels=[f'B{i}' for i in unique_building_classes],
@@ -517,60 +551,25 @@ plt.title('Confusion Matrix - Zgrada')
 plt.ylabel('True')
 plt.xlabel('Predicted')
 
-# 5. Confusion matrix - Floor
-ax5 = plt.subplot(3, 3, 5)
+# 6. Confusion matrix - Floor
+ax6 = plt.subplot(2, 3, 6)
 cm_floor = confusion_matrix(floor_true_classes, floor_pred_classes, labels=unique_floor_classes)
-sns.heatmap(cm_floor, annot=True, fmt='d', cmap='Greens',
-            xticklabels=[f'F{i}' for i in unique_floor_classes],
-            yticklabels=[f'F{i}' for i in unique_floor_classes])
+# Limit broj tickova za čitljivost
+max_ticks = 20
+if len(unique_floor_classes) > max_ticks:
+    tick_step = len(unique_floor_classes) // max_ticks
+    tick_labels_x = [f'F{i}' if idx % tick_step == 0 else '' for idx, i in enumerate(unique_floor_classes)]
+    tick_labels_y = [f'F{i}' if idx % tick_step == 0 else '' for idx, i in enumerate(unique_floor_classes)]
+else:
+    tick_labels_x = [f'F{i}' for i in unique_floor_classes]
+    tick_labels_y = [f'F{i}' for i in unique_floor_classes]
+
+sns.heatmap(cm_floor, annot=False, cmap='Greens',
+            xticklabels=tick_labels_x,
+            yticklabels=tick_labels_y)
 plt.title('Confusion Matrix - Sprat')
 plt.ylabel('True')
 plt.xlabel('Predicted')
-
-# 6. Coordinate predictions - Longitude
-ax6 = plt.subplot(3, 3, 6)
-plt.scatter(y_lon_test, y_pred_coords[:, 0], alpha=0.5, s=10)
-plt.plot([y_lon_test.min(), y_lon_test.max()],
-         [y_lon_test.min(), y_lon_test.max()], 'r--', linewidth=2)
-plt.xlabel('True Longitude')
-plt.ylabel('Predicted Longitude')
-plt.title('Longitude Predictions')
-plt.grid(True, alpha=0.3)
-
-# 7. Coordinate predictions - Latitude
-ax7 = plt.subplot(3, 3, 7)
-plt.scatter(y_lat_test, y_pred_coords[:, 1], alpha=0.5, s=10)
-plt.plot([y_lat_test.min(), y_lat_test.max()],
-         [y_lat_test.min(), y_lat_test.max()], 'r--', linewidth=2)
-plt.xlabel('True Latitude')
-plt.ylabel('Predicted Latitude')
-plt.title('Latitude Predictions')
-plt.grid(True, alpha=0.3)
-
-# 8. 2D Position visualization
-ax8 = plt.subplot(3, 3, 8)
-# Prikaži samo sample za čitljivost
-sample_size = min(200, len(y_lon_test))  # Ne uzimaj više uzoraka nego što ih ima
-sample_idx = np.random.choice(len(y_lon_test), sample_size, replace=False)
-plt.scatter(y_lon_test[sample_idx], y_lat_test[sample_idx],
-           c='blue', label='True', alpha=0.6, s=30)
-plt.scatter(y_pred_coords[sample_idx, 0], y_pred_coords[sample_idx, 1],
-           c='red', label='Predicted', alpha=0.6, s=30, marker='x')
-plt.xlabel('Longitude')
-plt.ylabel('Latitude')
-plt.title('2D Pozicije (Sample)')
-plt.legend()
-plt.grid(True, alpha=0.3)
-
-# 9. Positioning error distribution
-ax9 = plt.subplot(3, 3, 9)
-errors = np.sqrt((y_lon_test - y_pred_coords[:, 0])**2 +
-                 (y_lat_test - y_pred_coords[:, 1])**2)
-plt.hist(errors, bins=50, edgecolor='black', alpha=0.7)
-plt.xlabel('Greška Pozicioniranja (m)')
-plt.ylabel('Frekvencija')
-plt.title(f'Distribucija Greške\n(Median: {np.median(errors):.2f}m)')
-plt.grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.savefig('wifi_positioning_results.png', dpi=150, bbox_inches='tight')
@@ -605,6 +604,7 @@ def tune_hyperparameters():
                 input_dim=X_train.shape[1],
                 num_buildings=num_buildings,
                 num_floors=num_floors,
+                num_rooms=num_rooms,
                 learning_rate=lr,
                 dropout_rate=dropout
             )
@@ -651,8 +651,12 @@ print("\nŠta smo demonstrirali:")
 print("✓ Učitavanje i eksploraciju WiFi positioning dataseta")
 print("✓ Pretprocesiranje (normalizacija, encoding)")
 print("✓ Podjelu na Train/Val/Test")
-print("✓ Multi-output arhitekturu (klasifikacija + regresija)")
+print("✓ Multi-output arhitekturu (3 klasifikaciona izlaza)")
 print("✓ Treniranje sa callbacks (Early Stopping, LR Reduction)")
-print("✓ Evaluaciju performansi (accuracy, MAE, RMSE)")
+print("✓ Evaluaciju performansi (accuracy za zgrada/sprat/prostorija)")
 print("✓ Vizualizaciju rezultata")
 print("✓ Osnove hyperparameter tuninga")
+print("\nLokacija se predviđa kroz 3 dimenzije:")
+print("  - Zgrada")
+print("  - Sprat")
+print("  - Prostorija")

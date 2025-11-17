@@ -61,6 +61,8 @@ class WiFiDataCollector:
         # Help meni
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Uputstva", command=self.show_instructions)
+        help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
 
     def show_about(self):
@@ -69,6 +71,97 @@ class WiFiDataCollector:
                            "Mašinsko učenje i inteligentno upravljanje\n\n"
                            "Red. prof. dr Samim Konjicija\n\n"
                            "Novembar 2025. godine")
+
+    def show_instructions(self):
+        """Prikaz uputstava za korištenje"""
+        instructions = """UPUTSTVA ZA KORIŠTENJE
+
+1. KONFIGURACIJA LOKACIJA:
+   - Prije prvog pokretanja, uredite fajl wifi_config.json
+   - Definišite zgrade, spratove i prostorije za vašu lokaciju
+   - Format JSON fajla:
+     {
+       "buildings": [
+         {
+           "name": "Zgrada A",
+           "floors": [
+             {
+               "name": "Prizemlje",
+               "rooms": ["Prostorija 1", "Prostorija 2", ...]
+             }
+           ]
+         }
+       ]
+     }
+
+2. ODABIR LOKACIJE:
+   - Odaberite trenutnu zgradu iz padajućeg menija
+   - Odaberite sprat
+   - Odaberite prostoriju
+   - Sve tri stavke moraju biti odabrane prije prikupljanja
+
+3. PODEŠAVANJE PERIODA MJERENJA:
+   - Unesite period između mjerenja (u sekundama)
+   - Preporučeno: 5 sekundi
+   - Minimalno: 1 sekunda
+   - Maksimalno: 60 sekundi
+
+4. PRIKUPLJANJE PODATAKA:
+   - Kliknite "Započni prikupljanje"
+   - Aplikacija će periodično skenirati WiFi mreže
+   - Podaci se automatski prikazuju u tabeli
+   - Najnoviji podaci su na vrhu tabele
+
+5. ZAUSTAVLJANJE PRIKUPLJANJA:
+   - Kliknite "Zaustavi prikupljanje"
+   - Prikupljeni podaci ostaju sačuvani
+
+6. RESETIRANJE PODATAKA:
+   - Kliknite "Resetiraj prikupljanje"
+   - Svi prikupljeni podaci će biti obrisani
+   - Akcija je nepovratna!
+
+7. IZVOZ PODATAKA:
+   - Kliknite "Izvezi podatke"
+   - Odaberite lokaciju za snimanje CSV fajla
+   - CSV fajl može se koristiti za treniranje modela
+
+8. TRENIRANJE MODELA:
+   - Nakon prikupljanja podataka, koristite wifi_localization_demo.py
+   - Uredite WIFI_DATA_FILE varijablu sa imenom vašeg CSV fajla
+   - Pokrenite skriptu za treniranje modela
+
+NAPOMENE:
+- Aplikacija koristi nmcli komandu za skeniranje WiFi mreža
+- Ako nmcli nije dostupan, pokušat će iwlist komandu
+- Ako ni jedna komanda nije dostupna, generisat će simulirane podatke
+- Za najbolje rezultate, prikupite podatke na više lokacija
+- Preporučuje se najmanje 50-100 mjerenja po lokaciji"""
+
+        # Kreiraj novi prozor za uputstva
+        instructions_window = tk.Toplevel(self.root)
+        instructions_window.title("Uputstva za korištenje")
+        instructions_window.geometry("700x600")
+
+        # Text widget sa scrollbar-om
+        text_frame = ttk.Frame(instructions_window, padding=10)
+        text_frame.pack(fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side="right", fill="y")
+
+        text_widget = tk.Text(text_frame, wrap="word", yscrollcommand=scrollbar.set,
+                             font=("Courier", 9))
+        text_widget.pack(fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
+
+        text_widget.insert("1.0", instructions)
+        text_widget.config(state="disabled")
+
+        # Dugme za zatvaranje
+        close_button = ttk.Button(instructions_window, text="Zatvori",
+                                  command=instructions_window.destroy)
+        close_button.pack(pady=10)
 
     def create_gui(self):
         """Kreiranje GUI elemenata"""

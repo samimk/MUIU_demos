@@ -18,6 +18,7 @@ from keras import layers, models, callbacks, regularizers
 from keras.utils import to_categorical, plot_model
 import warnings
 import os
+import pickle
 warnings.filterwarnings('ignore')
 
 # Postavljanje seed-a za reproducibilnost
@@ -27,6 +28,9 @@ keras.utils.set_random_seed(42)
 # Putanja do CSV fajla sa WiFi podacima
 # Ako fajl ne postoji, koristiće se simulirani podaci
 WIFI_DATA_FILE = "wifi_data_20251117_171358.csv"
+
+# Ime fajla za pohranu istrenirane mreže
+TRAINED_ANN_FILE = "wifi_localization_model.keras"
 
 print("Keras verzija:", keras.__version__)
 
@@ -379,6 +383,31 @@ history = model.fit(
 )
 
 # ============================================================================
+# 5.1. POHRANA ISTRENIRANE MREŽE
+# ============================================================================
+
+print("\n" + "="*70)
+print("POHRANA MODELA")
+print("="*70)
+
+# Pohrana modela
+model.save(TRAINED_ANN_FILE)
+print(f"Model sačuvan u: {TRAINED_ANN_FILE}")
+
+# Pohrana scaler-a i dodatnih informacija potrebnih za upotrebu modela
+model_metadata = {
+    'scaler': scaler,
+    'num_buildings': num_buildings,
+    'num_floors': num_floors,
+    'wifi_cols': wifi_cols
+}
+
+metadata_file = TRAINED_ANN_FILE.replace('.keras', '_metadata.pkl')
+with open(metadata_file, 'wb') as f:
+    pickle.dump(model_metadata, f)
+print(f"Metadata sačuvana u: {metadata_file}")
+
+# ============================================================================
 # 6. EVALUACIJA NA TEST SKUPU
 # ============================================================================
 
@@ -521,7 +550,8 @@ plt.grid(True, alpha=0.3)
 # 8. 2D Position visualization
 ax8 = plt.subplot(3, 3, 8)
 # Prikaži samo sample za čitljivost
-sample_idx = np.random.choice(len(y_lon_test), 200, replace=False)
+sample_size = min(200, len(y_lon_test))  # Ne uzimaj više uzoraka nego što ih ima
+sample_idx = np.random.choice(len(y_lon_test), sample_size, replace=False)
 plt.scatter(y_lon_test[sample_idx], y_lat_test[sample_idx],
            c='blue', label='True', alpha=0.6, s=30)
 plt.scatter(y_pred_coords[sample_idx, 0], y_pred_coords[sample_idx, 1],
